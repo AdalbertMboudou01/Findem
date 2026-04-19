@@ -1,0 +1,38 @@
+
+# Java / Spring Boot
+*.class
+*.jar
+*.war
+*.iml
+.idea/
+target/
+out/
+
+# Node / React
+node_modules/
+build/
+.next/
+dist/
+coverage/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+env/
+venv/
+
+# Docker
+*.log
+docker-compose.override.yml
+
+# Secrets et fichiers sensibles
+.env
+.env.*
+*.secret
+*.key
+
+# Systèmes
+.DS_Store
+Thumbs.db
