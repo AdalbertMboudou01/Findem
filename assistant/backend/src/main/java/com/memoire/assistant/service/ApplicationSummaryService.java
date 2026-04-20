@@ -1,8 +1,16 @@
 package com.memoire.assistant.service;
 
 import com.memoire.assistant.dto.ApplicationSummaryDTO;
-import com.memoire.assistant.model.*;
-import com.memoire.assistant.repository.*;
+import com.memoire.assistant.model.Application;
+import com.memoire.assistant.model.ApplicationSummary;
+import com.memoire.assistant.model.Candidate;
+import com.memoire.assistant.model.ChatMessage;
+import com.memoire.assistant.model.Job;
+import com.memoire.assistant.repository.ApplicationRepository;
+import com.memoire.assistant.repository.ApplicationSummaryRepository;
+import com.memoire.assistant.repository.CandidateRepository;
+import com.memoire.assistant.repository.ChatMessageRepository;
+import com.memoire.assistant.repository.JobRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
