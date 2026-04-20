@@ -1,7 +1,6 @@
 package com.memoire.assistant.repository;
 
 import com.memoire.assistant.model.ApplicationSummary;
-import com.memoire.assistant.model.Application;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

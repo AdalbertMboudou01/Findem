@@ -1,6 +1,5 @@
 package com.memoire.assistant.security;
 
-import com.memoire.assistant.model.User;
 import com.memoire.assistant.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UserDetails;
