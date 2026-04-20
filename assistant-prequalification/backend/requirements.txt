@@ -1,6 +1,0 @@
-# Dépendances Python pour le backend
-fastapi
-uvicorn
-sqlalchemy
-pydantic
-python-dotenv
