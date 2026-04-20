@@ -1,7 +1,17 @@
 package com.memoire.assistant.model;
 
-import jakarta.persistence.*;
-import java.util.*;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import jakarta.persistence.Id;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import java.util.Date;
+import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "jobs")

@@ -1,7 +1,13 @@
 package com.memoire.assistant.model;
 
-import jakarta.persistence.*;
-import java.util.*;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import jakarta.persistence.Id;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.JoinColumn;
+import java.util.UUID;
 
 @Entity
 @Table(name = "recruiters")
@@ -21,24 +27,58 @@ public class Recruiter {
     private UUID authUserId;
 
     // Getters & Setters
+    public UUID getRecruiterId() {
+        return recruiterId;
+    }
+    
     public void setRecruiterId(UUID recruiterId) {
         this.recruiterId = recruiterId;
     }
+    
+    public Company getCompany() {
+        return company;
+    }
+    
     public void setCompany(Company company) {
         this.company = company;
     }
+    
+    public String getEmail() {
+        return email;
+    }
+    
     public void setEmail(String email) {
         this.email = email;
     }
+    
+    public String getName() {
+        return name;
+    }
+    
     public void setName(String name) {
         this.name = name;
     }
+    
+    public String getRole() {
+        return role;
+    }
+    
     public void setRole(String role) {
         this.role = role;
     }
+    
+    public String getStatus() {
+        return status;
+    }
+    
     public void setStatus(String status) {
         this.status = status;
     }
+    
+    public UUID getAuthUserId() {
+        return authUserId;
+    }
+    
     public void setAuthUserId(UUID authUserId) {
         this.authUserId = authUserId;
     }
