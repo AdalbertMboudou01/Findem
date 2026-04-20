@@ -1,0 +1,79 @@
+package com.memoire.assistant.controller;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.memoire.assistant.dto.AuthRequest;
+import com.memoire.assistant.dto.AuthResponse;
+import com.memoire.assistant.model.User;
+import com.memoire.assistant.repository.UserRepository;
+import com.memoire.assistant.security.JwtUtil;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.util.Optional;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@WebMvcTest(AuthController.class)
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc(addFilters = false)
+class AuthControllerTest {
+    @Autowired
+    private MockMvc mockMvc;
+    @Autowired
+    private ObjectMapper objectMapper;
+    @MockBean
+    private AuthenticationManager authenticationManager;
+    @MockBean
+    private JwtUtil jwtUtil;
+    @MockBean
+    private com.memoire.assistant.security.CustomUserDetailsService customUserDetailsService;
+    @MockBean
+    private UserRepository userRepository;
+    @MockBean
+    private PasswordEncoder passwordEncoder;
+
+    @Test
+    void login_shouldReturnToken_whenCredentialsValid() throws Exception {
+        AuthRequest req = new AuthRequest();
+        req.setEmail("test@mail.com");
+        req.setPassword("pass");
+        User user = new User();
+        user.setEmail("test@mail.com");
+        user.setPassword("pass");
+        user.setRole("ADMIN");
+        Authentication auth = Mockito.mock(Authentication.class);
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(auth);
+        when(userRepository.findByEmail("test@mail.com")).thenReturn(Optional.of(user));
+        when(jwtUtil.generateToken(user.getEmail(), user.getRole())).thenReturn("token123");
+        mockMvc.perform(post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").value("token123"))
+                .andExpect(jsonPath("$.role").value("ADMIN"));
+    }
+
+    @Test
+    void login_shouldReturnError_whenCredentialsInvalid() throws Exception {
+        AuthRequest req = new AuthRequest();
+        req.setEmail("wrong@mail.com");
+        req.setPassword("bad");
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenThrow(new BadCredentialsException("bad creds"));
+        mockMvc.perform(post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().is4xxClientError());
+    }
+}
