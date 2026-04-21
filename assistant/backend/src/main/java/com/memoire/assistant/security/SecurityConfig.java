@@ -39,6 +39,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                     "/api/auth/**",
+                    "/api/github/**",
+                    "/api/notifications/**",
                     "/assistant/**"
                 ).permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET,

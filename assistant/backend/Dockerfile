@@ -8,4 +8,4 @@ RUN chmod +x ./gradlew
 COPY src ./src
 RUN ./gradlew build -x test
 EXPOSE 8000
-CMD ["java", "-jar", "build/libs/assistant-prequalification-backend-0.0.1-SNAPSHOT.jar"]
+CMD ["java", "-jar", "build/libs/assistant-backend-0.0.1-SNAPSHOT.jar", "--spring.profiles.active=docker"]

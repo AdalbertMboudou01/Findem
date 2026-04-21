@@ -191,7 +191,7 @@ public class NotificationService {
         return content.toString();
     }
     
-    private void sendEmail(String to, String subject, String content) {
+    protected void sendEmail(String to, String subject, String content) {
         try {
             Properties props = new Properties();
             props.put("mail.smtp.host", emailHost);

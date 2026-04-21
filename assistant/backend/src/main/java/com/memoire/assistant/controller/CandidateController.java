@@ -113,16 +113,11 @@ public class CandidateController {
         RestTemplate restTemplate = new RestTemplate();
         String apiUrl = "https://api.github.com/users/" + username;
         try {
-            var response = restTemplate.getForObject(apiUrl, java.util.Map.class);
+            java.util.Map<String, Object> response = restTemplate.getForObject(apiUrl, java.util.Map.class);
             if (response == null) return ResponseEntity.notFound().build();
             GithubAnalysisDTO dto = new GithubAnalysisDTO();
             dto.setUsername(username);
-            dto.setPublicRepos((Integer) response.getOrDefault("public_repos", 0));
-            dto.setFollowers((Integer) response.getOrDefault("followers", 0));
-            dto.setFollowing((Integer) response.getOrDefault("following", 0));
-            dto.setProfileUrl((String) response.getOrDefault("html_url", githubUrl));
-            dto.setAvatarUrl((String) response.getOrDefault("avatar_url", null));
-            dto.setLastActivity((String) response.getOrDefault("updated_at", null));
+            dto.setPublicRepositories((Integer) response.getOrDefault("public_repos", 0));
             return ResponseEntity.ok(dto);
         } catch (Exception e) {
             return ResponseEntity.status(502).build();
@@ -159,10 +154,8 @@ public class CandidateController {
             java.util.List<String> missing = new java.util.ArrayList<>();
             for (String skill : skills) if (!found.contains(skill)) missing.add(skill);
             GithubSkillsAnalysisDTO dto = new GithubSkillsAnalysisDTO();
-            dto.setUsername(username);
-            dto.setFoundSkills(foundList);
-            dto.setMissingSkills(missing);
-            dto.setRepoCount(repos != null ? repos.size() : 0);
+            dto.setLanguages(foundList);
+            dto.setTechnologies(foundList);
             return ResponseEntity.ok(dto);
         } catch (Exception e) {
             return ResponseEntity.status(502).build();
