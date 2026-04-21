@@ -16,6 +16,11 @@ public class ChatbotController {
 
     @GetMapping("/questions")
     public List<ChatbotQuestionDTO> getQuestions(@RequestParam UUID jobId) {
-        return chatbotQuestionService.getQuestionsForJob(jobId);
+        return chatbotQuestionService.getQuestionsForJob(jobId).stream()
+                .map(q -> new ChatbotQuestionDTO(
+                        q.getId() != null ? q.getId().toString() : null,
+                        q.getQuestionText(),
+                        "text")) // ou "textarea" selon le besoin
+                .toList();
     }
 }

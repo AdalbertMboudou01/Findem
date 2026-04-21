@@ -147,14 +147,21 @@ public class JwtUtilTest {
         String username = "testuser";
         String role = "ROLE_USER";
         jwtUtil = new JwtUtil();
-        String token = jwtUtil.generateToken(username, role);
-        
-        // Modifier la signature
-        String invalidToken = token.substring(0, token.length() - 1) + "X";
-        
+
+        // Générer un token avec une clé différente (copie du code de JwtUtil)
+        String autreSecret = "UneCleSecreteTotalementDifferente12345678901234567890";
+        java.security.Key autreKey = io.jsonwebtoken.security.Keys.hmacShaKeyFor(autreSecret.getBytes());
+        String tokenSignatureIncorrecte = io.jsonwebtoken.Jwts.builder()
+                .setSubject(username)
+                .claim("role", role)
+                .setIssuedAt(new java.util.Date())
+                .setExpiration(new java.util.Date(System.currentTimeMillis() + 86400000))
+                .signWith(autreKey, io.jsonwebtoken.SignatureAlgorithm.HS256)
+                .compact();
+
         // When
-        boolean result = jwtUtil.validateToken(invalidToken);
-        
+        boolean result = jwtUtil.validateToken(tokenSignatureIncorrecte);
+
         // Then
         assertFalse(result);
     }

@@ -1,0 +1,34 @@
+package com.memoire.assistant.model;
+
+import jakarta.persistence.*;
+import java.util.UUID;
+
+@Entity
+public class ChatbotQuestion {
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private UUID id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "job_id")
+    private Job job;
+
+    @Column(nullable = false)
+    private String questionText;
+
+    @Column(nullable = false)
+    private int orderIndex;
+
+    // Getters et setters
+    public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
+
+    public Job getJob() { return job; }
+    public void setJob(Job job) { this.job = job; }
+
+    public String getQuestionText() { return questionText; }
+    public void setQuestionText(String questionText) { this.questionText = questionText; }
+
+    public int getOrderIndex() { return orderIndex; }
+    public void setOrderIndex(int orderIndex) { this.orderIndex = orderIndex; }
+}
