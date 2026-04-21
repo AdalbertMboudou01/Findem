@@ -1,5 +1,6 @@
 package com.memoire.assistant.dto;
 
+import java.util.List;
 import java.util.UUID;
 
 public class ApplicationSummaryDTO {
@@ -19,6 +20,15 @@ public class ApplicationSummaryDTO {
     private String concerns;
     private String generatedAt;
     private String generatedBy;
+    
+    // Champs ajoutés pour l'intégration CV
+    private Double relevanceScore;
+    private Double cvScore;
+    private Double cvTechnicalScore;
+    private Double cvExperienceScore;
+    private Double jobMatch;
+    private List<String> technicalSkills;
+    private Integer experienceYears;
 
     // Constructors
     public ApplicationSummaryDTO() {}
@@ -150,5 +160,62 @@ public class ApplicationSummaryDTO {
 
     public void setGeneratedBy(String generatedBy) {
         this.generatedBy = generatedBy;
+    }
+    
+    // Getters & Setters pour les champs CV
+    public Double getRelevanceScore() {
+        return relevanceScore;
+    }
+    
+    public void setRelevanceScore(Double relevanceScore) {
+        this.relevanceScore = relevanceScore;
+    }
+    
+    public Double getCvScore() {
+        return cvScore;
+    }
+    
+    public void setCvScore(Double cvScore) {
+        this.cvScore = cvScore;
+    }
+    
+    public Double getCvTechnicalScore() {
+        return cvTechnicalScore;
+    }
+    
+    public void setCvTechnicalScore(Double cvTechnicalScore) {
+        this.cvTechnicalScore = cvTechnicalScore;
+    }
+    
+    public Double getCvExperienceScore() {
+        return cvExperienceScore;
+    }
+    
+    public void setCvExperienceScore(Double cvExperienceScore) {
+        this.cvExperienceScore = cvExperienceScore;
+    }
+    
+    public Double getJobMatch() {
+        return jobMatch;
+    }
+    
+    public void setJobMatch(Double jobMatch) {
+        this.jobMatch = jobMatch;
+    }
+    
+    public List<String> getTechnicalSkills() {
+        return technicalSkills;
+    }
+    
+    public void setTechnicalSkills(List<String> technicalSkills) {
+        this.technicalSkills = technicalSkills;
+    }
+    
+    public Integer getExperienceYears() {
+        return experienceYears;
+    }
+    
+    public void setExperienceYears(Integer experienceYears) {
+        this.experienceYears = experienceYears;
     }
 }
