@@ -1,4 +1,3 @@
-
 # Java / Spring Boot
 *.class
 *.jar
@@ -37,3 +36,7 @@ docker-compose.override.yml
 .DS_Store
 Thumbs.db
 .vscode/
+
+# Ne pas versionner la documentation et le TODO
+/docs/
+TODO.md
