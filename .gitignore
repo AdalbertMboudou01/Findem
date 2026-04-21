@@ -36,3 +36,4 @@ docker-compose.override.yml
 # Systèmes
 .DS_Store
 Thumbs.db
+.vscode/
