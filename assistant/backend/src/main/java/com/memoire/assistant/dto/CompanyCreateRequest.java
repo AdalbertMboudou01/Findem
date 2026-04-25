@@ -1,6 +1,7 @@
 package com.memoire.assistant.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import java.util.Map;
 
 public class CompanyCreateRequest {
     @NotBlank(message = "Le nom est obligatoire")
@@ -11,7 +12,7 @@ public class CompanyCreateRequest {
     private String size;
     private String website;
     private String plan;
-    private String config;
+    private Map<String, Object> config;
     // Getters & Setters
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
@@ -23,6 +24,6 @@ public class CompanyCreateRequest {
     public void setWebsite(String website) { this.website = website; }
     public String getPlan() { return plan; }
     public void setPlan(String plan) { this.plan = plan; }
-    public String getConfig() { return config; }
-    public void setConfig(String config) { this.config = config; }
+    public Map<String, Object> getConfig() { return config; }
+    public void setConfig(Map<String, Object> config) { this.config = config; }
 }

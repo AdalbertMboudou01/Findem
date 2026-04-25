@@ -5,6 +5,10 @@ import com.memoire.assistant.dto.GithubSkillsAnalysisDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 
 import java.util.*;
 import java.util.regex.Pattern;
@@ -15,6 +19,10 @@ public class GitHubAnalysisService {
     
     @Autowired
     private RestTemplate restTemplate;
+    
+    // Configuration pour le rate limiting et retry
+    private static final int MAX_RETRIES = 3;
+    private static final long RETRY_DELAY_MS = 1000; // 1 seconde entre les tentatives
     
     private static final String GITHUB_API_URL = "https://api.github.com";
     
@@ -140,23 +148,62 @@ public class GitHubAnalysisService {
     }
     
     public Map<String, Object> getGitHubUserProfile(String username) {
-        try {
-            String url = GITHUB_API_URL + "/users/" + username;
-            return restTemplate.getForObject(url, Map.class);
-        } catch (Exception e) {
-            return null;
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                String url = GITHUB_API_URL + "/users/" + username;
+                
+                // Utiliser le RestTemplate par défaut (configuré globalement)
+                // Note: Pour une configuration avancée, utiliser RestTemplateBuilder dans une @Bean séparée
+                
+                // Ajouter un header User-Agent pour éviter les erreurs 403
+                HttpHeaders headers = new HttpHeaders();
+                headers.set("User-Agent", "Memoire-Assistant/1.0");
+                headers.set("Accept", "application/vnd.github.v3+json");
+                
+                HttpEntity<String> entity = new HttpEntity<>(headers);
+                
+                try {
+                    ResponseEntity<Map> response = restTemplate.exchange(
+                        url, HttpMethod.GET, entity, Map.class);
+                    
+                    if (response.getStatusCode().is2xxSuccessful()) {
+                        return response.getBody();
+                    } else {
+                        // Loguer l'erreur
+                        System.err.println("Erreur API GitHub: " + response.getStatusCode() + " - " + username);
+                    }
+                } catch (Exception e) {
+                    System.err.println("Erreur lors de l'appel API GitHub: " + e.getMessage());
+                }
+            } catch (Exception e) {
+                // Gérer l'exception
+            } finally {
+                // Nettoyage des ressources si nécessaire
+                // Note: Le finally s'exécute même en cas d'exception
+            }
         }
+        return null; // Retourner null si toutes les tentatives échouent
     }
     
     @SuppressWarnings("unchecked")
-    private List<Map<String, Object>> getUserRepositories(String username) {
+    public List<Map<String, Object>> getUserRepositories(String username) {
         try {
             String url = GITHUB_API_URL + "/users/" + username + "/repos";
-            Map<String, Object>[] repos = restTemplate.getForObject(url, Map[].class);
-            if (repos != null) {
-                return Arrays.asList(repos);
+            
+            // Ajouter un header User-Agent pour éviter les erreurs 403
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("User-Agent", "Memoire-Assistant/1.0");
+            
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            
+            ResponseEntity<Map[]> response = restTemplate.exchange(
+                url, HttpMethod.GET, entity, Map[].class);
+            
+            if (response.getStatusCode().is2xxSuccessful()) {
+                return Arrays.asList(response.getBody());
+            } else {
+                return new ArrayList<>();
             }
-            return new ArrayList<>();
         } catch (Exception e) {
             return new ArrayList<>();
         }

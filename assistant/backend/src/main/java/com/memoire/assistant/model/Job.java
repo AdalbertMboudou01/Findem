@@ -9,8 +9,11 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Entity
@@ -28,18 +31,41 @@ public class Job {
     @JoinColumn(name = "owner_recruiter_id")
     private Recruiter ownerRecruiter;
 
+    @Column(columnDefinition = "TEXT")
     private String title;
+
+    @Column(columnDefinition = "TEXT")
     private String description;
+
+    @Column(columnDefinition = "TEXT")
     private String location;
+
+    @Column(name = "duration_contract", columnDefinition = "TEXT")
     private String alternanceRhythm;
 
     @Column(columnDefinition = "jsonb")
-    private String blockingCriteria;
+    @JdbcTypeCode(SqlTypes.JSON)
+    private Map<String, Object> blockingCriteria;
 
     @ElementCollection
     private List<String> technologies;
 
+    @Column(columnDefinition = "TEXT")
     private String slug;
+    
+    // Champs pour le formulaire offre
+    @Column(name = "contexte_poste", columnDefinition = "TEXT")
+    private String contextePoste;
+    
+    @Column(name = "missions_detaillees", columnDefinition = "TEXT")
+    private String missionsDetaillees;
+    
+    @Column(name = "service_entreprise", columnDefinition = "TEXT")
+    private String serviceEntreprise;
+    
+    @Column(name = "statut", columnDefinition = "TEXT")
+    private String statut; // ouvert/pause/clôturé
+    
     private Date createdAt;
 
     // Getters & Setters
@@ -99,11 +125,11 @@ public class Job {
         this.alternanceRhythm = alternanceRhythm;
     }
     
-    public String getBlockingCriteria() {
+    public Map<String, Object> getBlockingCriteria() {
         return blockingCriteria;
     }
     
-    public void setBlockingCriteria(String blockingCriteria) {
+    public void setBlockingCriteria(Map<String, Object> blockingCriteria) {
         this.blockingCriteria = blockingCriteria;
     }
     
@@ -129,5 +155,38 @@ public class Job {
     
     public void setCreatedAt(Date createdAt) {
         this.createdAt = createdAt;
+    }
+    
+    // Getters et setters pour les nouveaux champs
+    public String getContextePoste() {
+        return contextePoste;
+    }
+    
+    public void setContextePoste(String contextePoste) {
+        this.contextePoste = contextePoste;
+    }
+    
+    public String getMissionsDetaillees() {
+        return missionsDetaillees;
+    }
+    
+    public void setMissionsDetaillees(String missionsDetaillees) {
+        this.missionsDetaillees = missionsDetaillees;
+    }
+    
+    public String getServiceEntreprise() {
+        return serviceEntreprise;
+    }
+    
+    public void setServiceEntreprise(String serviceEntreprise) {
+        this.serviceEntreprise = serviceEntreprise;
+    }
+    
+    public String getStatut() {
+        return statut;
+    }
+    
+    public void setStatut(String statut) {
+        this.statut = statut;
     }
 }

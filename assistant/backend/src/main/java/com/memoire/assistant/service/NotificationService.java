@@ -16,6 +16,8 @@ import jakarta.mail.Session;
 import jakarta.mail.Transport;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.core.task.TaskExecutor;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -45,6 +47,9 @@ public class NotificationService {
     
     @Value("${app.frontend.url:http://localhost:3100}")
     private String frontendUrl;
+    
+    @Autowired
+    private TaskExecutor taskExecutor;
     
     public void sendApplicationStatusUpdate(UUID applicationId, String newStatus) {
         Application application = applicationRepository.findById(applicationId)
@@ -191,6 +196,7 @@ public class NotificationService {
         return content.toString();
     }
     
+    @Async
     protected void sendEmail(String to, String subject, String content) {
         try {
             Properties props = new Properties();
@@ -214,7 +220,8 @@ public class NotificationService {
             Transport.send(message);
             
         } catch (MessagingException e) {
-            throw new RuntimeException("Erreur lors de l'envoi de l'email : " + e.getMessage(), e);
+            System.err.println("Erreur lors de l'envoi de l'email : " + e.getMessage());
+            // Ne pas lancer d'exception en mode async pour éviter de bloquer le thread principal
         }
     }
     

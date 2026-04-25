@@ -55,7 +55,7 @@ class CompanyControllerTest {
         req.setSize("10-50");
         req.setWebsite("https://test.com");
         req.setPlan("BASIC");
-        req.setConfig("{}");
+        req.setConfig(Collections.emptyMap());
         Company company = new Company();
         company.setName("TestCo");
         when(companyService.saveCompany(any())).thenReturn(company);

@@ -7,11 +7,18 @@ import com.memoire.assistant.service.FileUploadService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
 
@@ -102,6 +109,46 @@ public class FileUploadController {
     public ResponseEntity<CandidateFile> getCandidateCV(@PathVariable UUID candidateId) {
         CandidateFile cv = fileUploadService.getCandidateCV(candidateId);
         return cv != null ? ResponseEntity.ok(cv) : ResponseEntity.notFound().build();
+    }
+
+    @GetMapping("/candidate/{candidateId}/cv/content")
+    @Operation(summary = "Afficher le CV d'un candidat", description = "Retourne le contenu binaire du CV pour affichage ou telechargement")
+    public ResponseEntity<Resource> streamCandidateCV(@PathVariable UUID candidateId) {
+        CandidateFile cv = fileUploadService.getCandidateCV(candidateId);
+        if (cv == null || cv.getFilePath() == null || cv.getFilePath().isBlank()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        try {
+            Path filePath = Paths.get(cv.getFilePath());
+            if (!Files.exists(filePath) || !Files.isReadable(filePath)) {
+                return ResponseEntity.notFound().build();
+            }
+
+            byte[] fileContent = Files.readAllBytes(filePath);
+            Resource resource = new ByteArrayResource(fileContent);
+
+            MediaType mediaType = MediaType.APPLICATION_OCTET_STREAM;
+            if (cv.getMimeType() != null && !cv.getMimeType().isBlank()) {
+                try {
+                    mediaType = MediaType.parseMediaType(cv.getMimeType());
+                } catch (Exception ignored) {
+                    mediaType = MediaType.APPLICATION_OCTET_STREAM;
+                }
+            }
+
+            String fileName = cv.getOriginalFileName() != null && !cv.getOriginalFileName().isBlank()
+                ? cv.getOriginalFileName()
+                : cv.getFileName();
+
+            return ResponseEntity.ok()
+                .contentType(mediaType)
+                .contentLength(fileContent.length)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + fileName + "\"")
+                .body(resource);
+        } catch (IOException e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
     
     @DeleteMapping("/candidate/{candidateId}")

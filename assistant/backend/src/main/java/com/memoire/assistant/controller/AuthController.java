@@ -31,17 +31,16 @@ public class AuthController {
 
     @PostMapping("/login")
     public AuthResponse login(@RequestBody AuthRequest request) {
-        Authentication authentication;
         try {
-            authentication = authenticationManager.authenticate(
+            authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
             );
         } catch (BadCredentialsException e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Identifiants invalides");
         }
-        User user = userRepository.findByEmail(request.getEmail()).orElseThrow();
-        String token = jwtUtil.generateToken(user.getEmail(), user.getRole());
-        return new AuthResponse(token, user.getRole());
+        return userRepository.findByEmail(request.getEmail())
+            .map(user -> new AuthResponse(jwtUtil.generateToken(user.getEmail(), user.getRole()), user.getRole()))
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Identifiants invalides"));
     }
 
     @PostMapping("/register")

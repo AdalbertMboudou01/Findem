@@ -6,7 +6,10 @@ import jakarta.persistence.Id;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Column;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.util.Date;
+import java.util.Map;
 import java.util.UUID;
 
 @Entity
@@ -24,7 +27,8 @@ public class Company {
     private Date createdAt;
 
     @Column(columnDefinition = "jsonb")
-    private String config;
+    @JdbcTypeCode(SqlTypes.JSON)
+    private Map<String, Object> config;
 
     // Getters & Setters
     public UUID getCompanyId() {
@@ -75,11 +79,11 @@ public class Company {
         this.plan = plan;
     }
     
-    public String getConfig() {
+    public Map<String, Object> getConfig() {
         return config;
     }
     
-    public void setConfig(String config) {
+    public void setConfig(Map<String, Object> config) {
         this.config = config;
     }
     

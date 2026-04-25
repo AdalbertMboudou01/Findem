@@ -1,6 +1,7 @@
 package com.memoire.assistant.controller;
 
 import com.memoire.assistant.dto.ChatAnswerDTO;
+import com.memoire.assistant.dto.ChatAnswerResponse;
 import com.memoire.assistant.model.ChatMessage;
 import com.memoire.assistant.service.ChatMessageService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,10 +24,20 @@ public class ChatMessageController {
     
     @PostMapping("/answer")
     @Operation(summary = "Sauvegarder une réponse du chatbot", description = "Permet de sauvegarder la réponse d'un candidat à une question du chatbot")
-    public ResponseEntity<ChatMessage> saveAnswer(@Valid @RequestBody ChatAnswerDTO answerDTO) {
+    public ResponseEntity<ChatAnswerResponse> saveAnswer(@Valid @RequestBody ChatAnswerDTO answerDTO) {
         try {
             ChatMessage savedMessage = chatMessageService.saveAnswer(answerDTO);
-            return ResponseEntity.ok(savedMessage);
+            ChatAnswerResponse response = new ChatAnswerResponse();
+            response.setMessageId(savedMessage.getMessageId());
+            response.setApplicationId(savedMessage.getApplication() != null ? savedMessage.getApplication().getApplicationId() : null);
+            response.setCandidateId(savedMessage.getCandidate() != null ? savedMessage.getCandidate().getCandidateId() : null);
+            response.setQuestionKey(savedMessage.getQuestionKey());
+            response.setQuestionText(savedMessage.getQuestionText());
+            response.setAnswer(savedMessage.getAnswer());
+            response.setMessageType(savedMessage.getMessageType());
+            response.setCreatedAt(savedMessage.getCreatedAt());
+
+            return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().build();
         }

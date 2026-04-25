@@ -2,6 +2,7 @@ package com.memoire.assistant.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import java.util.Map;
 import java.util.UUID;
 
 public class JobCreateRequest {
@@ -12,7 +13,7 @@ public class JobCreateRequest {
     @NotBlank(message = "La localisation est obligatoire")
     private String location;
     private String alternanceRhythm;
-    private String blockingCriteria;
+    private Map<String, Object> blockingCriteria;
     private String slug;
     @NotNull(message = "L'identifiant de la société est obligatoire")
     private UUID companyId;
@@ -27,8 +28,8 @@ public class JobCreateRequest {
     public void setLocation(String location) { this.location = location; }
     public String getAlternanceRhythm() { return alternanceRhythm; }
     public void setAlternanceRhythm(String alternanceRhythm) { this.alternanceRhythm = alternanceRhythm; }
-    public String getBlockingCriteria() { return blockingCriteria; }
-    public void setBlockingCriteria(String blockingCriteria) { this.blockingCriteria = blockingCriteria; }
+    public Map<String, Object> getBlockingCriteria() { return blockingCriteria; }
+    public void setBlockingCriteria(Map<String, Object> blockingCriteria) { this.blockingCriteria = blockingCriteria; }
     public String getSlug() { return slug; }
     public void setSlug(String slug) { this.slug = slug; }
     public UUID getCompanyId() { return companyId; }

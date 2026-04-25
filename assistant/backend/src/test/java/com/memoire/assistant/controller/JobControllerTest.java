@@ -54,7 +54,7 @@ class JobControllerTest {
         req.setDescription("desc");
         req.setLocation("Paris");
         req.setAlternanceRhythm("semaine");
-        req.setBlockingCriteria("aucun");
+        req.setBlockingCriteria(Collections.emptyMap());
         req.setSlug("dev");
         req.setCompanyId(UUID.randomUUID());
         req.setOwnerRecruiterId(UUID.randomUUID());

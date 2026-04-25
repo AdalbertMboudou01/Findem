@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --t-fg1: #1E1E1E;
+  --t-fg2: #424242;
+  --t-fg3: #616161;
+  --t-fg4: #858585;
+  --t-fg-disabled: #ADADAD;
+  --t-fg-brand: #2B5EA7;
+  --t-fg-brand-hover: #1E4A8A;
+  --t-bg1: #FFFFFF;
+  --t-bg1-hover: #F5F5F5;
+  --t-bg1-selected: #EBEBEB;
+  --t-bg2: #FAFAFA;
+  --t-bg3: #F5F5F5;
+  --t-bg4: #EBEBEB;
+  --t-bg5: #E0E0E0;
+  --t-bg-brand: #2B5EA7;
+  --t-bg-brand-hover: #1E4A8A;
+  --t-bg-brand-selected: #E8F0FB;
+  --t-bg-static: #292929;
+  --t-bg-subtle-hover: #F5F5F5;
+  --t-bg-subtle-selected: #EBEBEB;
+  --t-stroke1: #D1D1D1;
+  --t-stroke2: #E0E0E0;
+  --t-stroke3: #EBEBEB;
+  --t-stroke-brand: #2B5EA7;
+  --t-brand-10: #0F2440;
+  --t-brand-40: #1A3D6E;
+  --t-brand-60: #1E4A8A;
+  --t-brand-70: #245299;
+  --t-brand-80: #2B5EA7;
+  --t-brand-90: #3D73B8;
+  --t-brand-100: #5088C5;
+  --t-brand-120: #85AED8;
+  --t-brand-140: #B3CEE8;
+  --t-brand-160: #E0EDF7;
+  --t-success: #2E7D32;
+  --t-warning: #E6A817;
+  --t-danger: #C62828;
+  --t-danger-bg: #FFF5F5;
+  --t-success-bg: #F0F7F0;
+  --t-warning-bg: #FFFBF0;
+}
+
+.dark {
+  --t-fg1: #F0F0F0;
+  --t-fg2: #C8C8C8;
+  --t-fg3: #9E9E9E;
+  --t-fg4: #6E6E6E;
+  --t-fg-disabled: #4E4E4E;
+  --t-fg-brand: #6EA3D6;
+  --t-fg-brand-hover: #8ABDE6;
+  --t-bg1: #1E1E1E;
+  --t-bg1-hover: #282828;
+  --t-bg1-selected: #313131;
+  --t-bg2: #191919;
+  --t-bg3: #151515;
+  --t-bg4: #2A2A2A;
+  --t-bg5: #383838;
+  --t-bg-brand: #2B5EA7;
+  --t-bg-brand-hover: #3D73B8;
+  --t-bg-brand-selected: #1A2E50;
+  --t-bg-static: #111111;
+  --t-bg-subtle-hover: #282828;
+  --t-bg-subtle-selected: #313131;
+  --t-stroke1: #404040;
+  --t-stroke2: #333333;
+  --t-stroke3: #282828;
+  --t-stroke-brand: #5088C5;
+  --t-brand-10: #0F2440;
+  --t-brand-40: #1A3D6E;
+  --t-brand-60: #1E4A8A;
+  --t-brand-70: #245299;
+  --t-brand-80: #2B5EA7;
+  --t-brand-90: #3D73B8;
+  --t-brand-100: #5088C5;
+  --t-brand-120: #85AED8;
+  --t-brand-140: #B3CEE8;
+  --t-brand-160: #1A2E50;
+  --t-success: #66BB6A;
+  --t-warning: #FFA726;
+  --t-danger: #EF5350;
+  --t-danger-bg: #2D1717;
+  --t-success-bg: #172D17;
+  --t-warning-bg: #2D2617;
+}
+
+@layer base {
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-t-bg3 text-t-fg1 font-sans text-body1;
+    overflow: hidden;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-t-stroke2 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-t-fg3;
+  }
+
+  ::selection {
+    @apply bg-t-brand-160 text-t-fg1;
+  }
+}

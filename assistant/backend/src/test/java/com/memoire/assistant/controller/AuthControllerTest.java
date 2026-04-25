@@ -1,4 +1,11 @@
 package com.memoire.assistant.controller;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.ResponseEntity;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.memoire.assistant.dto.AuthRequest;
@@ -29,6 +36,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(AuthController.class)
 @org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc(addFilters = false)
 class AuthControllerTest {
+    @TestConfiguration
+    static class MockMvcConfig {
+        @Bean
+        public ExceptionHandlerExceptionResolver exceptionHandlerExceptionResolver() {
+            return new ExceptionHandlerExceptionResolver();
+        }
+    }
+    @ControllerAdvice(assignableTypes = AuthController.class)
+    static class TestExceptionHandler {
+        @ExceptionHandler(ResponseStatusException.class)
+        public ResponseEntity<String> handleResponseStatusException(ResponseStatusException ex) {
+            return ResponseEntity.status(ex.getStatusCode()).body(ex.getReason());
+        }
+    }
     @Autowired
     private MockMvc mockMvc;
     @Autowired
@@ -38,11 +59,11 @@ class AuthControllerTest {
     @MockBean
     private JwtUtil jwtUtil;
     @MockBean
-    private com.memoire.assistant.security.CustomUserDetailsService customUserDetailsService;
-    @MockBean
     private UserRepository userRepository;
     @MockBean
     private PasswordEncoder passwordEncoder;
+    @MockBean
+    private com.memoire.assistant.security.CustomUserDetailsService customUserDetailsService;
 
     @Test
     void login_shouldReturnToken_whenCredentialsValid() throws Exception {
@@ -72,8 +93,8 @@ class AuthControllerTest {
         req.setPassword("bad");
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenThrow(new BadCredentialsException("bad creds"));
         mockMvc.perform(post("/api/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().is4xxClientError());
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(req)))
+            .andExpect(status().isUnauthorized());
     }
 }

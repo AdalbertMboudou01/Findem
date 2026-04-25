@@ -8,13 +8,15 @@ services:
     environment:
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
     volumes:
-      - ./backend:/app
+      - uploads_data:/app/uploads
     depends_on:
       - db
   frontend:
     build: ./frontend
     ports:
-      - "3100:3000"
+      - "3100:5173"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8100
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -30,7 +32,7 @@ services:
       - "55432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/migrations:/docker-entrypoint-initdb.d
 
 volumes:
   postgres_data:
+  uploads_data:

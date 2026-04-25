@@ -59,6 +59,13 @@ public class FileUploadService {
             file.getSize(),
             file.getContentType()
         );
+
+        if ("CV".equalsIgnoreCase(fileType)) {
+            candidate.setCvPath(filePath.toString());
+            candidate.setCvFileName(originalFileName);
+            candidate.setCvContentType(file.getContentType());
+            candidateRepository.save(candidate);
+        }
         
         return candidateFileRepository.save(candidateFile);
     }

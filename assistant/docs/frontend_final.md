@@ -399,5 +399,103 @@
 
 ---
 
+## 📋 Interfaces complètes requises (16 au total)
+
+### Interfaces Candidat (3)
+1. **Page d'accueil chatbot** (`/chatbot/[jobId]`)
+   - Formulaire initial : nom, prénom, email
+   - Validation des champs
+   - Redirection vers le chatbot
+
+2. **Interface conversationnelle** (`/chat/[jobId]/[candidateId]`)
+   - Chatbot avec questions structurées selon l'offre
+   - Historique de conversation
+   - Upload optionnel CV/Portfolio
+   - Lien GitHub/Portfolio
+
+3. **Page de confirmation** (`/confirmation/[applicationId]`)
+   - Remerciement post-candidature
+   - Information sur le suivi
+   - Délai de réponse attendu
+
+### Interfaces Recruteur (9)
+4. **Page de connexion** (`/login`)
+   - Formulaire email/mot de passe
+   - "Mot de passe oublié"
+   - Redirection tableau de bord
+
+5. **Page de création de compte** (`/register`)
+   - Formulaire d'inscription recruteur
+   - Validation email
+   - Création entreprise associée
+
+6. **Tableau de bord principal** (`/dashboard`)
+   - Vue d'ensemble des candidatures
+   - Filtres rapides (statut, priorité)
+   - Statistiques clés
+   - Navigation vers autres sections
+
+7. **Interface création d'offre** (`/jobs/create`)
+   - Formulaire création offre
+   - Génération URL unique
+   - Prévisualisation
+   - Liste des offres existantes
+
+8. **Fiche synthétique candidat** (`/applications/[id]`)
+   - Vue détaillée candidature préqualifiée
+   - Informations structurées
+   - Actions rapides (retenir, revoir, écarter)
+   - Historique interactions
+
+9. **Interface de filtrage** (`/applications`)
+   - Filtres avancés multi-critères
+   - Grille de lecture à 3 niveaux
+   - Export résultats
+   - Sauvegarde filtres
+
+10. **Gestion du vivier** (`/pool`)
+    - Profils conservés pour futures opportunités
+    - Filtres par compétences/disponibilité
+    - Actions groupées
+    - Historique vivier
+
+11. **Interface de prise de rendez-vous** (`/interviews/[applicationId]`)
+    - Intégration Calendly
+    - Créneaux disponibles
+    - Confirmation automatique
+    - Synchronisation calendrier
+
+12. **Profil recruteur** (`/profile`)
+    - Gestion compte personnel
+    - Informations entreprise
+    - Préférences notifications
+    - Sécurité (mot de passe)
+
+### Interfaces Utilitaires (4)
+13. **Page 404** (`/404`)
+    - Gestion erreurs navigation
+    - Retour accueil
+    - Recherche
+
+14. **Page de chargement** (`/loading`)
+    - États intermédiaires
+    - Skeleton screens
+    - Progress indicators
+
+15. **Mot de passe oublié** (`/forgot-password`)
+    - Formulaire récupération
+    - Email de réinitialisation
+    - Nouveau mot de passe
+
+16. **Composants partagés**
+    - Header navigation
+    - Footer
+    - Modales
+    - Notifications
+    - Boutons actions
+    - Cards candidatures
+
+---
+
 **Dernière mise à jour : 21 avril 2026**
 **Statut : Prêt pour développement sprints**

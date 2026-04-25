@@ -6,4 +6,5 @@ import java.util.UUID;
 
 public interface CandidateRepository extends JpaRepository<Candidate, UUID> {
 	java.util.List<Candidate> findByInPoolTrue();
+	java.util.Optional<Candidate> findByEmail(String email);
 }

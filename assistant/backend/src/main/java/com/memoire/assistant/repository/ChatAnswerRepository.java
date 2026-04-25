@@ -18,6 +18,11 @@ public interface ChatAnswerRepository extends JpaRepository<ChatAnswer, UUID> {
     List<ChatAnswer> findByApplication_ApplicationId(UUID applicationId);
     
     /**
+     * Trouve toutes les réponses pour une session de chat
+     */
+    List<ChatAnswer> findByChatSession_ChatSessionId(UUID chatSessionId);
+    
+    /**
      * Trouve une réponse par sa clé de question et application
      */
     ChatAnswer findByApplication_ApplicationIdAndQuestionKey(UUID applicationId, String questionKey);

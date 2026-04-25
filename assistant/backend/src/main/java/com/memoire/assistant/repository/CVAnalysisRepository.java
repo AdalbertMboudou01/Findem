@@ -88,8 +88,8 @@ public interface CVAnalysisRepository extends JpaRepository<CVAnalysis, UUID> {
     @Query("SELECT cv FROM CVAnalysis cv WHERE " +
            "LOWER(cv.fullName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(cv.email) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
-           "EXISTS (SELECT 1 FROM cv.technicalSkills ts WHERE LOWER(ts) LIKE LOWER(CONCAT('%', :query, '%')))")
-    List<CVAnalysis> searchByQuery(@Param("query") String query);
+           ":skill MEMBER OF cv.technicalSkills")
+    List<CVAnalysis> searchByQuery(@Param("query") String query, @Param("skill") String skill);
     
     /**
      * Trouve les meilleures analyses selon le score global

@@ -16,6 +16,10 @@ public class ChatAnswer {
     @JoinColumn(name = "application_id", nullable = false)
     private Application application;
     
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "chat_session_id")
+    private ChatSession chatSession;
+    
     @Column(name = "question_key", nullable = false)
     private String questionKey;
     
@@ -27,6 +31,15 @@ public class ChatAnswer {
     
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+    
+    @Column(name = "normalized_value")
+    private String normalizedValue;
+    
+    @Column(name = "answered_at")
+    private LocalDateTime answeredAt;
+    
+    @Column(name = "required", nullable = false)
+    private Boolean required;
     
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
@@ -42,6 +55,16 @@ public class ChatAnswer {
         this.questionKey = questionKey;
         this.questionText = questionText;
         this.answerText = answerText;
+    }
+    
+    public ChatAnswer(ChatSession chatSession, String questionKey, String questionText, String answerText, Boolean required) {
+        this();
+        this.chatSession = chatSession;
+        this.questionKey = questionKey;
+        this.questionText = questionText;
+        this.answerText = answerText;
+        this.required = required;
+        this.answeredAt = LocalDateTime.now();
     }
     
     // Getters & Setters
@@ -99,6 +122,38 @@ public class ChatAnswer {
     
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+    
+    public ChatSession getChatSession() {
+        return chatSession;
+    }
+    
+    public void setChatSession(ChatSession chatSession) {
+        this.chatSession = chatSession;
+    }
+    
+    public String getNormalizedValue() {
+        return normalizedValue;
+    }
+    
+    public void setNormalizedValue(String normalizedValue) {
+        this.normalizedValue = normalizedValue;
+    }
+    
+    public LocalDateTime getAnsweredAt() {
+        return answeredAt;
+    }
+    
+    public void setAnsweredAt(LocalDateTime answeredAt) {
+        this.answeredAt = answeredAt;
+    }
+    
+    public Boolean getRequired() {
+        return required;
+    }
+    
+    public void setRequired(Boolean required) {
+        this.required = required;
     }
     
     @PreUpdate
