@@ -9,6 +9,7 @@ import com.memoire.assistant.security.TenantContext;
 import com.memoire.assistant.service.CompanyService;
 import com.memoire.assistant.dto.CompanyCreateRequest;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +27,9 @@ import java.util.Collections;
 @RestController
 @RequestMapping("/api/companies")
 public class CompanyController {
+    @Value("${app.features.bootstrap-test-enabled:false}")
+    private boolean bootstrapTestEnabled;
+
     @Autowired
     private CompanyService companyService;
     @Autowired
@@ -68,6 +72,10 @@ public class CompanyController {
 
     @PostMapping("/bootstrap-test")
     public ResponseEntity<Map<String, Object>> bootstrapTestCompany(Authentication authentication) {
+        if (!bootstrapTestEnabled) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Endpoint desactive"));
+        }
+
         if (authentication == null || authentication.getName() == null || authentication.getName().isBlank()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
@@ -126,6 +134,13 @@ public class CompanyController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Company> updateCompany(@PathVariable UUID id, @RequestBody Company company) {
+        UUID tenantCompanyId = TenantContext.getCompanyId();
+        if (tenantCompanyId == null || !tenantCompanyId.equals(id)) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!TenantContext.isAdmin()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         if (!companyService.getCompanyById(id).isPresent()) {
             return ResponseEntity.notFound().build();
         }
@@ -135,6 +150,13 @@ public class CompanyController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteCompany(@PathVariable UUID id) {
+        UUID tenantCompanyId = TenantContext.getCompanyId();
+        if (tenantCompanyId == null || !tenantCompanyId.equals(id)) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!TenantContext.isAdmin()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         if (!companyService.getCompanyById(id).isPresent()) {
             return ResponseEntity.notFound().build();
         }

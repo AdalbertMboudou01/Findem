@@ -5,19 +5,52 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Claims;
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.UUID;
 
 @Component
 public class JwtUtil {
-    private final String jwtSecret = "ChangeThisSecretKeyToAStrongOneForProduction1234567890";
-    private final long jwtExpirationMs = 86400000; // 24h
+    @Value("${jwt.secret}")
+    private String jwtSecret;
+
+    @Value("${jwt.expiration:86400000}")
+    private long jwtExpirationMs;
+
+    @Value("${spring.profiles.active:}")
+    private String activeProfiles;
+
+    @PostConstruct
+    void validateConfiguration() {
+        if (jwtSecret == null || jwtSecret.isBlank()) {
+            throw new IllegalStateException("jwt.secret est obligatoire");
+        }
+
+        boolean productionLike = activeProfiles != null
+            && activeProfiles.toLowerCase().contains("prod");
+
+        if (productionLike) {
+            if ("your-secret-key-here-change-in-production".equals(jwtSecret)) {
+                throw new IllegalStateException("jwt.secret ne doit pas utiliser la valeur par defaut en production");
+            }
+
+            if (jwtSecret.getBytes(StandardCharsets.UTF_8).length < 32) {
+                throw new IllegalStateException("jwt.secret doit contenir au moins 32 octets en production");
+            }
+        }
+
+        if (jwtExpirationMs <= 0) {
+            throw new IllegalStateException("jwt.expiration doit etre strictement positif");
+        }
+    }
 
     private Key getSigningKey() {
-        return Keys.hmacShaKeyFor(jwtSecret.getBytes());
+        return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
     public String generateToken(String username, String role) {

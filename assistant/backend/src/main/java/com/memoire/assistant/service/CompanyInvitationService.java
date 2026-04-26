@@ -11,6 +11,7 @@ import com.memoire.assistant.repository.CompanyInvitationRepository;
 import com.memoire.assistant.repository.RecruiterRepository;
 import com.memoire.assistant.repository.UserRepository;
 import com.memoire.assistant.security.JwtUtil;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,9 @@ public class CompanyInvitationService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+
+    @Value("${app.invitation.expose-token:false}")
+    private boolean exposeInvitationToken;
 
     public CompanyInvitationService(
         CompanyInvitationRepository invitationRepository,
@@ -64,6 +68,14 @@ public class CompanyInvitationService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Un utilisateur avec cet email existe deja");
         }
 
+        if (recruiterRepository.findByCompany_CompanyIdAndEmailIgnoreCase(companyId, targetEmail).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ce membre existe deja dans votre entreprise");
+        }
+
+        if (invitationRepository.findByCompany_CompanyIdAndEmailIgnoreCaseAndStatus(companyId, targetEmail, "PENDING").isPresent()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Une invitation en attente existe deja pour cet email");
+        }
+
         String role = normalizeRole(request.getRole());
         String rawToken = UUID.randomUUID().toString() + "." + UUID.randomUUID();
         String tokenHash = sha256(rawToken);
@@ -80,7 +92,9 @@ public class CompanyInvitationService {
         invitation = invitationRepository.save(invitation);
 
         InvitationResponse response = toResponse(invitation);
-        response.setInvitationToken(rawToken);
+        if (exposeInvitationToken) {
+            response.setInvitationToken(rawToken);
+        }
         return response;
     }
 
