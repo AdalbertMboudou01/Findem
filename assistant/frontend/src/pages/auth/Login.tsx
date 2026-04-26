@@ -7,6 +7,10 @@ import { useAuth } from '../../lib/AuthContext';
 type LoginResponse = {
   token: string;
   role: string;
+  userId?: string;
+  recruiterId?: string;
+  companyId?: string;
+  onboardingCompleted?: boolean;
 };
 
 export default function Login() {
@@ -30,6 +34,10 @@ export default function Login() {
         user: {
           email,
           role: data.role,
+          userId: data.userId || null,
+          recruiterId: data.recruiterId || null,
+          companyId: data.companyId || null,
+          onboardingCompleted: Boolean(data.onboardingCompleted),
         },
       });
       navigate('/');

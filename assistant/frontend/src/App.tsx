@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './lib/AuthContext';
 import { ThemeProvider } from './lib/ThemeContext';
 import Settings from './pages/Settings';
@@ -17,9 +17,11 @@ import CandidateChatbot from './pages/CandidateChatbot';
 import OfferSettings from './pages/OfferSettings';
 import OfferPriority from './pages/OfferPriority';
 import Vivier from './pages/Vivier';
+import CompanyOnboarding from './pages/CompanyOnboarding';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -30,6 +32,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return <Navigate to="/landing" replace />;
+
+  const requiresOnboarding = !user.onboardingCompleted;
+  if (requiresOnboarding && location.pathname !== '/entreprise/setup') {
+    return <Navigate to="/entreprise/setup" replace />;
+  }
+
   return <>{children}</>;
 }
 
@@ -63,6 +71,7 @@ function AppRoutes() {
         </Route>
         <Route path="/chatbot" element={<Chatbot />} />
         <Route path="/entreprise" element={<Entreprise />} />
+        <Route path="/entreprise/setup" element={<CompanyOnboarding />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
 

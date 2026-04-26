@@ -7,6 +7,10 @@ import { useAuth } from '../../lib/AuthContext';
 type RegisterResponse = {
   token: string;
   role: string;
+  userId?: string;
+  recruiterId?: string;
+  companyId?: string;
+  onboardingCompleted?: boolean;
 };
 
 export default function Register() {
@@ -14,6 +18,9 @@ export default function Register() {
   const { signIn } = useAuth();
   const [fullName, setFullName] = useState('');
   const [company, setCompany] = useState('');
+  const [sector, setSector] = useState('Technologie');
+  const [size, setSize] = useState('PME');
+  const [website, setWebsite] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
@@ -39,11 +46,16 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const data = await postJson<RegisterResponse>('/api/auth/register', {
+      const data = await postJson<RegisterResponse>('/api/auth/register-company-owner', {
+        fullName,
+        companyName: company,
+        sector,
+        size,
+        website,
+        plan: 'starter',
         email,
         password,
         confirmPassword: password,
-        role: 'RECRUITER',
       });
 
       signIn({
@@ -51,6 +63,11 @@ export default function Register() {
         user: {
           email,
           role: data.role,
+          userId: data.userId || null,
+          recruiterId: data.recruiterId || null,
+          companyId: data.companyId || null,
+          // Le setup entreprise est obligatoire dans PR2 meme si le backend marque deja true.
+          onboardingCompleted: false,
           user_metadata: {
             full_name: fullName,
           },
@@ -58,7 +75,7 @@ export default function Register() {
       });
 
       setSuccess(true);
-      setTimeout(() => navigate('/'), 1000);
+      setTimeout(() => navigate('/entreprise/setup'), 1000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de la creation du compte.');
     } finally {
@@ -117,6 +134,47 @@ export default function Register() {
                 onChange={(e) => setCompany(e.target.value)}
                 required
                 placeholder="Nom de votre entreprise"
+                className="w-full h-9 px-3 text-body1 bg-t-bg1 border border-t-stroke2 rounded-fluent outline-none focus:border-t-stroke-brand transition-colors placeholder:text-t-fg-disabled"
+              />
+            </div>
+
+            <div>
+              <label className="block text-caption1 font-semibold text-t-fg2 mb-1">Secteur</label>
+              <select
+                value={sector}
+                onChange={(e) => setSector(e.target.value)}
+                className="w-full h-9 px-3 text-body1 bg-t-bg1 border border-t-stroke2 rounded-fluent outline-none focus:border-t-stroke-brand transition-colors"
+              >
+                <option value="Technologie">Technologie</option>
+                <option value="Finance">Finance</option>
+                <option value="Sante">Sante</option>
+                <option value="Industrie">Industrie</option>
+                <option value="Conseil">Conseil</option>
+                <option value="Autre">Autre</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-caption1 font-semibold text-t-fg2 mb-1">Taille</label>
+              <select
+                value={size}
+                onChange={(e) => setSize(e.target.value)}
+                className="w-full h-9 px-3 text-body1 bg-t-bg1 border border-t-stroke2 rounded-fluent outline-none focus:border-t-stroke-brand transition-colors"
+              >
+                <option value="Startup">Startup</option>
+                <option value="PME">PME</option>
+                <option value="ETI">ETI</option>
+                <option value="Grande Entreprise">Grande Entreprise</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-caption1 font-semibold text-t-fg2 mb-1">Site web (optionnel)</label>
+              <input
+                type="text"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+                placeholder="https://entreprise.com"
                 className="w-full h-9 px-3 text-body1 bg-t-bg1 border border-t-stroke2 rounded-fluent outline-none focus:border-t-stroke-brand transition-colors placeholder:text-t-fg-disabled"
               />
             </div>

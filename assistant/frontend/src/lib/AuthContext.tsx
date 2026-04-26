@@ -6,13 +6,17 @@ type UserMetadata = {
   full_name?: string;
 };
 
-type AuthUser = {
+export type AuthUser = {
   email: string;
   role: string;
+  userId?: string | null;
+  recruiterId?: string | null;
+  companyId?: string | null;
+  onboardingCompleted?: boolean;
   user_metadata?: UserMetadata;
 };
 
-type StoredAuth = {
+export type StoredAuth = {
   token: string;
   user: AuthUser;
 };
@@ -22,6 +26,7 @@ interface AuthState {
   token: string | null;
   loading: boolean;
   signIn: (payload: StoredAuth) => void;
+  updateUser: (patch: Partial<AuthUser>) => void;
   signOut: () => Promise<void>;
 }
 
@@ -30,6 +35,7 @@ const AuthContext = createContext<AuthState>({
   token: null,
   loading: true,
   signIn: () => {},
+  updateUser: () => {},
   signOut: async () => {},
 });
 
@@ -64,6 +70,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(payload.user);
   }
 
+  function updateUser(patch: Partial<AuthUser>) {
+    setUser((current) => {
+      if (!current) return current;
+      const updated = { ...current, ...patch };
+      if (token) {
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token, user: updated }));
+      }
+      return updated;
+    });
+  }
+
   async function signOut() {
     localStorage.removeItem(AUTH_STORAGE_KEY);
     setToken(null);
@@ -71,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, token, loading, signIn, updateUser, signOut }}>
       {children}
     </AuthContext.Provider>
   );
