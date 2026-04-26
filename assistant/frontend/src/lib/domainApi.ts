@@ -1,5 +1,5 @@
 import { deleteJson, getJson, postJson, putJson, patchJson } from './api';
-import type { AnalysisFact, Candidate, CandidateStatus, ChatbotQuestion, Offer, OfferStatus, TriCategory } from '../types';
+import type { AnalysisFact, AnalysisFactFeedback, AnalysisFactFeedbackDecision, Candidate, CandidateStatus, ChatbotQuestion, Offer, OfferStatus, TriCategory } from '../types';
 
 type BackendCandidate = {
   candidateId: string;
@@ -126,6 +126,18 @@ type BackendChatbotQuestion = {
   orderIndex?: number;
   answerType?: ChatbotQuestion['type'];
   required?: boolean;
+};
+
+type BackendAnalysisFactFeedback = {
+  feedbackId?: string;
+  applicationId?: string;
+  dimension?: string;
+  finding?: string;
+  evidence?: string;
+  decision?: AnalysisFactFeedbackDecision;
+  correctedFinding?: string;
+  reviewerComment?: string;
+  createdAt?: string;
 };
 
 export type OfferDraftInput = {
@@ -557,6 +569,43 @@ export async function saveChatbotQuestions(jobId: string, questions: ChatbotQues
   }
 
   return loadChatbotQuestions(jobId);
+}
+
+export async function loadAnalysisFactFeedback(applicationId: string): Promise<AnalysisFactFeedback[]> {
+  const entries = await getJson<BackendAnalysisFactFeedback[]>(`/api/chat-answers/feedback/${applicationId}`);
+  return (entries || []).map((item) => ({
+    feedback_id: item.feedbackId || '',
+    application_id: item.applicationId || applicationId,
+    dimension: item.dimension || 'general',
+    finding: item.finding || '',
+    evidence: item.evidence || '',
+    decision: (item.decision || 'CONFIRMED') as AnalysisFactFeedbackDecision,
+    corrected_finding: item.correctedFinding || '',
+    reviewer_comment: item.reviewerComment || '',
+    created_at: item.createdAt || new Date().toISOString(),
+  }));
+}
+
+export async function submitAnalysisFactFeedback(applicationId: string, payload: {
+  dimension: string;
+  finding: string;
+  evidence: string;
+  decision: AnalysisFactFeedbackDecision;
+  correctedFinding?: string;
+  reviewerComment?: string;
+}): Promise<AnalysisFactFeedback> {
+  const saved = await postJson<BackendAnalysisFactFeedback>(`/api/chat-answers/feedback/${applicationId}`, payload);
+  return {
+    feedback_id: saved.feedbackId || '',
+    application_id: saved.applicationId || applicationId,
+    dimension: saved.dimension || payload.dimension,
+    finding: saved.finding || payload.finding,
+    evidence: saved.evidence || payload.evidence,
+    decision: (saved.decision || payload.decision) as AnalysisFactFeedbackDecision,
+    corrected_finding: saved.correctedFinding || '',
+    reviewer_comment: saved.reviewerComment || '',
+    created_at: saved.createdAt || new Date().toISOString(),
+  };
 }
 
 // ─── Quota / paramètres offre ──────────────────────────────────────────────

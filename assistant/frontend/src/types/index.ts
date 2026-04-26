@@ -47,6 +47,20 @@ export interface AnalysisFact {
   source_question: string;
 }
 
+export type AnalysisFactFeedbackDecision = 'CONFIRMED' | 'CORRECTED' | 'REJECTED';
+
+export interface AnalysisFactFeedback {
+  feedback_id: string;
+  application_id: string;
+  dimension: string;
+  finding: string;
+  evidence: string;
+  decision: AnalysisFactFeedbackDecision;
+  corrected_finding: string;
+  reviewer_comment: string;
+  created_at: string;
+}
+
 export interface Candidate {
   id: string;
   application_id: string | null;

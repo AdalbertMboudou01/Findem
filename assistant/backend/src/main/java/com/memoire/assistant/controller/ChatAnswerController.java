@@ -2,7 +2,10 @@ package com.memoire.assistant.controller;
 
 import com.memoire.assistant.dto.ChatAnswerAnalysisDTO;
 import com.memoire.assistant.dto.ChatAnswerDTO;
+import com.memoire.assistant.dto.AnalysisFactFeedbackRequest;
+import com.memoire.assistant.dto.AnalysisFactFeedbackResponse;
 import com.memoire.assistant.service.ChatAnswerService;
+import com.memoire.assistant.service.AnalysisFactFeedbackService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,6 +28,9 @@ public class ChatAnswerController {
     
     @Autowired
     private ChatAnswerService chatAnswerService;
+
+    @Autowired
+    private AnalysisFactFeedbackService analysisFactFeedbackService;
     
     @PostMapping("/submit")
     @Operation(summary = "Soumettre une réponse du chatbot", description = "Enregistre une réponse du candidat à une question du chatbot")
@@ -151,6 +157,31 @@ public class ChatAnswerController {
             );
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+    }
+
+    @GetMapping("/feedback/{applicationId}")
+    @PreAuthorize("hasRole('RECRUITER') or hasRole('ADMIN')")
+    @Operation(summary = "Lister les corrections recruteur", description = "Retourne l'historique des corrections de constats pour une candidature")
+    public ResponseEntity<List<AnalysisFactFeedbackResponse>> getAnalysisFeedback(
+            @Parameter(description = "ID de la candidature") @PathVariable UUID applicationId) {
+        try {
+            return ResponseEntity.ok(analysisFactFeedbackService.getFeedbackByApplication(applicationId));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+    }
+
+    @PostMapping("/feedback/{applicationId}")
+    @PreAuthorize("hasRole('RECRUITER') or hasRole('ADMIN')")
+    @Operation(summary = "Ajouter une correction recruteur", description = "Enregistre une validation/correction/rejet d'un constat d'analyse")
+    public ResponseEntity<AnalysisFactFeedbackResponse> saveAnalysisFeedback(
+            @Parameter(description = "ID de la candidature") @PathVariable UUID applicationId,
+            @RequestBody AnalysisFactFeedbackRequest request) {
+        try {
+            return ResponseEntity.ok(analysisFactFeedbackService.saveFeedback(applicationId, request));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
     }
 }

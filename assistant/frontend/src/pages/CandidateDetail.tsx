@@ -26,9 +26,9 @@ import {
   Maximize2,
 } from 'lucide-react';
 import { TriBadge, StatusBadge } from '../components/ui/Badge';
-import type { Candidate, CandidateStatus, Offer } from '../types';
+import type { AnalysisFactFeedback, AnalysisFactFeedbackDecision, Candidate, CandidateStatus, Offer } from '../types';
 import { useEffect, useMemo, useState } from 'react';
-import { loadRecruitmentData, setCandidateDecision } from '../lib/domainApi';
+import { loadAnalysisFactFeedback, loadRecruitmentData, setCandidateDecision, submitAnalysisFactFeedback } from '../lib/domainApi';
 import { getBlob, getJson } from '../lib/api';
 
 type ChatAnswerApi = {
@@ -86,6 +86,9 @@ export default function CandidateDetail() {
   const [chatbotResponses, setChatbotResponses] = useState<{ question: string; answer: string }[]>([]);
   const [chatbotCompletedAt, setChatbotCompletedAt] = useState<string | null>(null);
   const [chatbotLoading, setChatbotLoading] = useState(false);
+  const [factFeedback, setFactFeedback] = useState<AnalysisFactFeedback[]>([]);
+  const [factFeedbackError, setFactFeedbackError] = useState('');
+  const [factDrafts, setFactDrafts] = useState<Record<string, { decision: AnalysisFactFeedbackDecision; correctedFinding: string; reviewerComment: string; saving: boolean }>>({});
   const [noteText, setNoteText] = useState('');
   const [notes, setNotes] = useState<{ text: string; date: string; author: string }[]>([
     { text: 'Profil interessant, bon projet e-commerce. A contacter rapidement.', date: '2026-04-22T10:30:00Z', author: 'Recruteur' },
@@ -176,6 +179,85 @@ export default function CandidateDetail() {
       mounted = false;
     };
   }, [c]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadFeedback() {
+      if (!c?.application_id) {
+        if (mounted) {
+          setFactFeedback([]);
+          setFactFeedbackError('');
+        }
+        return;
+      }
+
+      try {
+        const data = await loadAnalysisFactFeedback(c.application_id);
+        if (!mounted) return;
+        setFactFeedback(data);
+        setFactFeedbackError('');
+      } catch {
+        if (!mounted) return;
+        setFactFeedbackError('Impossible de charger les corrections recruteur.');
+      }
+    }
+
+    loadFeedback();
+
+    return () => {
+      mounted = false;
+    };
+  }, [c?.application_id]);
+
+  function feedbackKey(dimension: string, finding: string) {
+    return `${dimension}::${finding}`;
+  }
+
+  function ensureDraft(key: string) {
+    const existing = factDrafts[key];
+    if (existing) return existing;
+    return { decision: 'CONFIRMED' as const, correctedFinding: '', reviewerComment: '', saving: false };
+  }
+
+  function updateDraft(key: string, patch: Partial<{ decision: AnalysisFactFeedbackDecision; correctedFinding: string; reviewerComment: string; saving: boolean }>) {
+    setFactDrafts((prev) => ({
+      ...prev,
+      [key]: { ...ensureDraft(key), ...patch },
+    }));
+  }
+
+  async function submitFactReview(key: string, payload: { dimension: string; finding: string; evidence: string }) {
+    if (!c?.application_id) return;
+
+    const draft = ensureDraft(key);
+    if (draft.decision === 'CORRECTED' && !draft.correctedFinding.trim()) {
+      setFactFeedbackError('La correction est obligatoire quand la decision est CORRECTED.');
+      return;
+    }
+
+    updateDraft(key, { saving: true });
+    setFactFeedbackError('');
+    try {
+      const saved = await submitAnalysisFactFeedback(c.application_id, {
+        dimension: payload.dimension,
+        finding: payload.finding,
+        evidence: payload.evidence,
+        decision: draft.decision,
+        correctedFinding: draft.correctedFinding,
+        reviewerComment: draft.reviewerComment,
+      });
+
+      setFactFeedback((prev) => [saved, ...prev]);
+      setFactDrafts((prev) => ({
+        ...prev,
+        [key]: { decision: 'CONFIRMED', correctedFinding: '', reviewerComment: '', saving: false },
+      }));
+    } catch {
+      setFactFeedbackError('Impossible d\'enregistrer cette correction.');
+      updateDraft(key, { saving: false });
+    }
+  }
 
   if (loading) {
     return <div className="flex-1 flex items-center justify-center bg-t-bg3 text-body1 text-t-fg3">Chargement du candidat...</div>;
@@ -383,9 +465,66 @@ export default function CandidateDetail() {
                         <span>Confiance: {Math.round(fact.confidence * 100)}%</span>
                         {fact.source_question && <span>Source: {fact.source_question}</span>}
                       </div>
+                      {(() => {
+                        const key = feedbackKey(fact.dimension, fact.finding);
+                        const draft = ensureDraft(key);
+                        const latestFeedback = factFeedback.find((entry) => entry.dimension === fact.dimension && entry.finding === fact.finding);
+                        return (
+                          <div className="mt-3 border-t border-t-stroke3 pt-3">
+                            {latestFeedback && (
+                              <p className="text-caption1 text-t-fg3 mb-2">
+                                Derniere revue: {latestFeedback.decision}
+                                {latestFeedback.corrected_finding ? ` | Correction: ${latestFeedback.corrected_finding}` : ''}
+                              </p>
+                            )}
+                            <div className="grid sm:grid-cols-3 gap-2">
+                              <select
+                                value={draft.decision}
+                                onChange={(e) => updateDraft(key, { decision: e.target.value as AnalysisFactFeedbackDecision })}
+                                className="h-9 rounded-fluent border border-t-stroke3 bg-t-bg1 px-2 text-caption1"
+                                disabled={draft.saving}
+                              >
+                                <option value="CONFIRMED">CONFIRMED</option>
+                                <option value="CORRECTED">CORRECTED</option>
+                                <option value="REJECTED">REJECTED</option>
+                              </select>
+                              <input
+                                value={draft.correctedFinding}
+                                onChange={(e) => updateDraft(key, { correctedFinding: e.target.value })}
+                                className="h-9 rounded-fluent border border-t-stroke3 bg-t-bg1 px-2 text-caption1 sm:col-span-2"
+                                placeholder="Correction proposee (si CORRECTED)"
+                                disabled={draft.saving}
+                              />
+                            </div>
+                            <div className="mt-2 flex gap-2">
+                              <input
+                                value={draft.reviewerComment}
+                                onChange={(e) => updateDraft(key, { reviewerComment: e.target.value })}
+                                className="h-9 rounded-fluent border border-t-stroke3 bg-t-bg1 px-2 text-caption1 flex-1"
+                                placeholder="Commentaire recruteur (optionnel)"
+                                disabled={draft.saving}
+                              />
+                              <button
+                                onClick={() => submitFactReview(key, {
+                                  dimension: fact.dimension,
+                                  finding: fact.finding,
+                                  evidence: fact.evidence,
+                                })}
+                                className="h-9 px-3 rounded-fluent bg-t-brand-80 text-white text-caption1 font-semibold disabled:opacity-50"
+                                disabled={draft.saving}
+                              >
+                                {draft.saving ? 'Enregistrement...' : 'Valider'}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </li>
                   ))}
                 </ul>
+                {factFeedbackError && (
+                  <p className="text-caption1 text-t-danger mt-3">{factFeedbackError}</p>
+                )}
                 {c.analysis_fallback_used && (
                   <p className="text-caption1 text-t-warning mt-3">
                     Certains constats proviennent d'un fallback technique car l'extraction semantique etait partielle.
