@@ -89,7 +89,10 @@ class ChatAnswerServiceTest {
         // Vérifier la motivation
         assertEquals("HIGH", result.getMotivationLevel());
         assertTrue(result.isHasSpecificMotivation());
-        assertTrue(result.getMotivationKeywords().contains("passionné"));
+        assertTrue(
+            result.getMotivationKeywords().contains("passion") || result.getMotivationKeywords().contains("passionne"),
+            "Mots-clés motivation: " + result.getMotivationKeywords()
+        );
         
         // Vérifier le profil technique
         assertEquals("STRONG", result.getTechnicalLevel());
@@ -108,7 +111,12 @@ class ChatAnswerServiceTest {
         // Vérifier le score de complétude
         assertTrue(result.getCompletenessScore() >= 0.8);
         assertTrue(result.getInconsistencies().isEmpty());
-        assertEquals("PRIORITY", result.getRecommendedAction());
+        assertEquals("MANUAL_REVIEW", result.getRecommendedAction());
+        assertEquals("phase1.v1", result.getAnalysisSchemaVersion());
+        assertNotNull(result.getSemanticFacts());
+        assertFalse(result.getSemanticFacts().isEmpty());
+        assertTrue(result.getSemanticFacts().stream().allMatch(f -> f.getEvidence() != null && !f.getEvidence().isBlank()));
+        assertTrue(result.getSemanticFacts().stream().allMatch(f -> f.getConfidence() >= 0.0 && f.getConfidence() <= 1.0));
 
         verify(applicationRepository).findById(applicationId);
         verify(chatAnswerRepository).findByApplication_ApplicationId(applicationId);
@@ -300,7 +308,7 @@ class ChatAnswerServiceTest {
         assertEquals("FUTURE", result.getAvailabilityStatus());
         assertTrue(result.getCompletenessScore() >= 0.5 && result.getCompletenessScore() <= 0.9, "Score de complétude: " + result.getCompletenessScore());
         String reco = result.getRecommendedAction();
-        assertTrue(reco != null && (reco.equalsIgnoreCase("REVIEW") || reco.equalsIgnoreCase("PRIORITY") || reco.equalsIgnoreCase("INTERVIEW")), "Recommandation: " + reco);
+        assertEquals("MANUAL_REVIEW", reco, "Recommandation: " + reco);
 
         verify(applicationRepository).findById(applicationId);
         verify(chatAnswerRepository).findByApplication_ApplicationId(applicationId);

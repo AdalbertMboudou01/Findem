@@ -39,6 +39,14 @@ export interface Offer {
   user_id: string | null;
 }
 
+export interface AnalysisFact {
+  dimension: string;
+  finding: string;
+  evidence: string;
+  confidence: number;
+  source_question: string;
+}
+
 export interface Candidate {
   id: string;
   application_id: string | null;
@@ -67,6 +75,9 @@ export interface Candidate {
   points_forts: string[];
   points_attention: string[];
   action_recommandee: string;
+  analysis_schema_version: string | null;
+  analysis_fallback_used: boolean;
+  analysis_facts: AnalysisFact[];
   chatbot_responses: ChatbotResponse[] | null;
   chatbot_completed: boolean;
   offer_id: string | null;

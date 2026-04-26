@@ -365,6 +365,35 @@ export default function CandidateDetail() {
               </div>
             )}
 
+            {c.analysis_facts.length > 0 && (
+              <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
+                <h3 className="inline-flex items-center gap-2 text-caption1 font-semibold text-t-fg2 uppercase tracking-wider mb-2">
+                  <MessageCircle className="w-3.5 h-3.5" />Constats observes avec preuves
+                </h3>
+                {c.analysis_schema_version && (
+                  <p className="text-caption1 text-t-fg3 mb-3">Schema: {c.analysis_schema_version}</p>
+                )}
+                <ul className="space-y-3">
+                  {c.analysis_facts.map((fact, i) => (
+                    <li key={`${fact.dimension}-${i}`} className="border border-t-stroke3 rounded-fluent p-3 bg-t-bg2">
+                      <p className="text-body1 text-t-fg1 font-medium">{fact.finding}</p>
+                      <p className="text-caption1 text-t-fg3 mt-1">Preuve: {fact.evidence}</p>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-caption1 text-t-fg3">
+                        <span>Dimension: {fact.dimension}</span>
+                        <span>Confiance: {Math.round(fact.confidence * 100)}%</span>
+                        {fact.source_question && <span>Source: {fact.source_question}</span>}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                {c.analysis_fallback_used && (
+                  <p className="text-caption1 text-t-warning mt-3">
+                    Certains constats proviennent d'un fallback technique car l'extraction semantique etait partielle.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="bg-t-brand-160 border border-t-brand-140 rounded-fluent px-5 py-4">
               <h3 className="inline-flex items-center gap-2 text-caption1 font-semibold text-t-brand-80 uppercase tracking-wider mb-2">
                 <CheckCircle2 className="w-3.5 h-3.5" />Lecture recruteur

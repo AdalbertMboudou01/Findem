@@ -113,6 +113,14 @@ public class ChatAnswerController {
             @Parameter(description = "ID de la candidature") @PathVariable UUID applicationId) {
         try {
             ChatAnswerAnalysisDTO analysis = chatAnswerService.analyzeChatAnswers(applicationId);
+
+            Map<String, Object> analysisSchema = Map.of(
+                "version", analysis.getAnalysisSchemaVersion() == null ? "phase1.v1" : analysis.getAnalysisSchemaVersion(),
+                "facts", analysis.getSemanticFacts() == null ? List.of() : analysis.getSemanticFacts(),
+                "missingInformation", analysis.getMissingInformation() == null ? List.of() : analysis.getMissingInformation(),
+                "contradictions", analysis.getInconsistencies() == null ? List.of() : analysis.getInconsistencies(),
+                "fallbackUsed", analysis.isSemanticFallbackUsed()
+            );
             
             return ResponseEntity.ok(
                 Map.ofEntries(
@@ -137,7 +145,8 @@ public class ChatAnswerController {
                     Map.entry("missingInformation", analysis.getMissingInformation()),
                     Map.entry("inconsistencies", analysis.getInconsistencies()),
                     Map.entry("pointsToConfirm", analysis.getPointsToConfirm() == null ? List.of() : analysis.getPointsToConfirm()),
-                    Map.entry("recruiterGuidance", analysis.getRecruiterGuidance() == null ? "" : analysis.getRecruiterGuidance())
+                    Map.entry("recruiterGuidance", analysis.getRecruiterGuidance() == null ? "" : analysis.getRecruiterGuidance()),
+                    Map.entry("analysisSchema", analysisSchema)
                 )
             );
         } catch (Exception e) {

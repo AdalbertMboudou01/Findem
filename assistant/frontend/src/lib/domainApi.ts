@@ -1,5 +1,5 @@
 import { deleteJson, getJson, postJson, putJson, patchJson } from './api';
-import type { Candidate, CandidateStatus, ChatbotQuestion, Offer, OfferStatus, TriCategory } from '../types';
+import type { AnalysisFact, Candidate, CandidateStatus, ChatbotQuestion, Offer, OfferStatus, TriCategory } from '../types';
 
 type BackendCandidate = {
   candidateId: string;
@@ -67,6 +67,19 @@ type BackendChatAnswerSummary = {
   inconsistencies?: string[];
   pointsToConfirm?: string[];
   recruiterGuidance?: string;
+  analysisSchema?: {
+    version?: string;
+    facts?: Array<{
+      dimension?: string;
+      finding?: string;
+      evidence?: string;
+      confidence?: number;
+      sourceQuestion?: string;
+    }>;
+    missingInformation?: string[];
+    contradictions?: string[];
+    fallbackUsed?: boolean;
+  };
 };
 
 type BackendApplicationStatus = {
@@ -152,6 +165,7 @@ function mapRecommendedActionLabel(action?: string, guidance?: string): string {
   if (guidance && guidance.trim().length > 0) return guidance;
 
   const value = (action || '').toUpperCase();
+  if (value === 'MANUAL_REVIEW') return 'Decision finale humaine requise sur la base des constats et preuves extraites.';
   if (value === 'PRIORITY' || value === 'INTERVIEW') return 'Lecture prioritaire recommandee avant validation humaine.';
   if (value === 'REVIEW') return 'Lecture manuelle recommandee pour confirmer les points encore ambigus.';
   if (value === 'REJECT') return 'Des clarifications sont necessaires avant de pouvoir conclure sur cette candidature.';
@@ -403,12 +417,21 @@ export async function loadRecruitmentData(): Promise<{ offers: Offer[]; candidat
     const technicalSkills = analysis?.technicalSkills || [];
     const strengths = analysis?.strengths || [];
     const missingInfo = analysis?.missingInformation || [];
-    const inconsistencies = analysis?.inconsistencies || [];
+    const inconsistencies = analysis?.inconsistencies || analysis?.analysisSchema?.contradictions || [];
     const pointsToConfirm = analysis?.pointsToConfirm || [];
     const projectSummaryParts = [
       ...(mentionedProjects.length > 0 ? [mentionedProjects.join(', ')] : []),
       ...(githubSummary ? [githubSummary] : []),
     ];
+    const analysisFacts: AnalysisFact[] = (analysis?.analysisSchema?.facts || [])
+      .filter((fact) => (fact?.finding || '').trim().length > 0 && (fact?.evidence || '').trim().length > 0)
+      .map((fact) => ({
+        dimension: (fact.dimension || 'general').trim(),
+        finding: (fact.finding || '').trim(),
+        evidence: (fact.evidence || '').trim(),
+        confidence: Number.isFinite(fact.confidence) ? Math.max(0, Math.min(1, Number(fact.confidence))) : 0.5,
+        source_question: (fact.sourceQuestion || '').trim(),
+      }));
 
     return {
       id: item.candidateId,
@@ -438,6 +461,9 @@ export async function loadRecruitmentData(): Promise<{ offers: Offer[]; candidat
       points_forts: strengths,
       points_attention: Array.from(new Set([...missingInfo, ...inconsistencies, ...pointsToConfirm])),
       action_recommandee: mapRecommendedActionLabel(analysis?.recommendedAction, analysis?.recruiterGuidance),
+      analysis_schema_version: analysis?.analysisSchema?.version?.trim() || null,
+      analysis_fallback_used: Boolean(analysis?.analysisSchema?.fallbackUsed),
+      analysis_facts: analysisFacts,
       chatbot_responses: null,
       chatbot_completed: Boolean(analysis),
       offer_id: app?.job?.jobId || null,

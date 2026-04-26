@@ -2,6 +2,7 @@ package com.memoire.assistant.service;
 
 import com.memoire.assistant.dto.ChatAnswerAnalysisDTO;
 import com.memoire.assistant.dto.GithubAnalysisDTO;
+import com.memoire.assistant.dto.AnalysisFactDTO;
 import com.memoire.assistant.model.Application;
 import com.memoire.assistant.model.ChatAnswer;
 import com.memoire.assistant.model.Job;
@@ -82,6 +83,7 @@ public class ChatAnswerService {
         enrichWithGitHubAndPortfolio(application, analysis);
         analyzeAvailability(answers, analysis);
         analyzeLocation(answers, analysis, application.getJob());
+        extractConstrainedSemanticFacts(answers, analysis);
         
         // Calculer le score de complétude
         calculateCompletenessScore(answers, analysis);
@@ -445,7 +447,13 @@ public class ChatAnswerService {
         List<String> strengths = new ArrayList<>();
         List<String> pointsToConfirm = new ArrayList<>();
 
-        if ("HIGH".equals(analysis.getMotivationLevel())) {
+        Optional<AnalysisFactDTO> motivationFact = findFact(analysis, "motivation");
+        Optional<AnalysisFactDTO> projectFact = findFact(analysis, "projects");
+
+        if (motivationFact.isPresent()) {
+            analysis.setMotivationAssessment(motivationFact.get().getFinding());
+            strengths.add("La motivation est formulée de manière claire et engagée.");
+        } else if ("HIGH".equals(analysis.getMotivationLevel())) {
             analysis.setMotivationAssessment("Motivation claire, exprimée avec engagement et reliée au poste.");
             strengths.add("La motivation est formulée de manière claire et engagée.");
         } else if ("MEDIUM".equals(analysis.getMotivationLevel())) {
@@ -456,7 +464,10 @@ public class ChatAnswerService {
             pointsToConfirm.add("Revenir avec le candidat sur les raisons concrètes de sa candidature.");
         }
 
-        if (analysis.isHasProjectDetails()) {
+        if (projectFact.isPresent()) {
+            analysis.setProjectAssessment(projectFact.get().getFinding());
+            strengths.add("Des projets ou réalisations concrètes sont mentionnés.");
+        } else if (analysis.isHasProjectDetails()) {
             analysis.setProjectAssessment("Au moins un projet ou une réalisation est identifiable dans les réponses ou les preuves externes.");
             strengths.add("Des projets ou réalisations concrètes sont mentionnés.");
         } else {
@@ -496,6 +507,10 @@ public class ChatAnswerService {
             pointsToConfirm.add("Le niveau technique reste à confirmer avec des exemples plus précis.");
         }
 
+        if (analysis.isSemanticFallbackUsed()) {
+            pointsToConfirm.add("Extraction sémantique partielle: certains constats reposent sur un fallback technique.");
+        }
+
         if (analysis.getInconsistencies() != null && !analysis.getInconsistencies().isEmpty()) {
             pointsToConfirm.addAll(analysis.getInconsistencies());
         }
@@ -507,41 +522,177 @@ public class ChatAnswerService {
     }
 
     private String resolveQualitativeAction(ChatAnswerAnalysisDTO analysis) {
-        boolean richProfile = "HIGH".equals(analysis.getMotivationLevel())
-            && analysis.isHasProjectDetails()
-            && analysis.getTechnicalSkills() != null
-            && !analysis.getTechnicalSkills().isEmpty()
-            && analysis.getInconsistencies().isEmpty();
-
-        boolean incompleteProfile = (analysis.getMissingInformation() != null && analysis.getMissingInformation().size() >= 3)
-            || (analysis.getPointsToConfirm() != null && analysis.getPointsToConfirm().size() >= 4);
-
-        if (richProfile) {
-            return "PRIORITY";
-        }
-        if (incompleteProfile) {
-            return "REVIEW";
-        }
-        return "REVIEW";
+        return "MANUAL_REVIEW";
     }
 
     private String buildRecruiterGuidance(ChatAnswerAnalysisDTO analysis) {
-        boolean richProfile = "HIGH".equals(analysis.getMotivationLevel())
-            && analysis.isHasProjectDetails()
-            && analysis.getTechnicalSkills() != null
-            && !analysis.getTechnicalSkills().isEmpty()
-            && analysis.getInconsistencies().isEmpty();
-
         boolean incompleteProfile = (analysis.getMissingInformation() != null && analysis.getMissingInformation().size() >= 3)
-            || (analysis.getPointsToConfirm() != null && analysis.getPointsToConfirm().size() >= 4);
+            || (analysis.getPointsToConfirm() != null && analysis.getPointsToConfirm().size() >= 4)
+            || analysis.isSemanticFallbackUsed();
 
-        if (richProfile) {
-            return "Profil documenté avec des éléments concrets. Une lecture prioritaire est pertinente avant validation humaine.";
-        }
         if (incompleteProfile) {
             return "La candidature contient des éléments utiles, mais plusieurs informations clés restent à confirmer avant toute décision.";
         }
-        return "La candidature est exploitable, mais mérite une lecture manuelle ciblée pour confirmer les points encore ambigus.";
+        return "La candidature est structurée en constats avec preuves textuelles. Une validation humaine reste requise avant décision.";
+    }
+
+    private void extractConstrainedSemanticFacts(List<ChatAnswer> answers, ChatAnswerAnalysisDTO analysis) {
+        List<AnalysisFactDTO> facts = new ArrayList<>();
+        boolean fallbackUsed = false;
+
+        List<ChatAnswer> motivationAnswers = answers.stream()
+            .filter(this::isMotivationAnswer)
+            .collect(Collectors.toList());
+        List<ChatAnswer> projectAnswers = answers.stream()
+            .filter(this::isProjectAnswer)
+            .collect(Collectors.toList());
+
+        facts.addAll(extractFactsFromAnswers(motivationAnswers, "motivation"));
+        facts.addAll(extractFactsFromAnswers(projectAnswers, "projects"));
+
+        if (facts.stream().noneMatch(f -> "motivation".equals(f.getDimension()))) {
+            fallbackUsed = true;
+            String fallbackEvidence = truncateEvidence(analysis.getMotivationSummary());
+            if (!fallbackEvidence.isBlank() && !"Motivation non fournie.".equalsIgnoreCase(fallbackEvidence)) {
+                facts.add(new AnalysisFactDTO(
+                    "motivation",
+                    "Constat motivation produit via fallback heuristique (extraction sémantique incomplète).",
+                    fallbackEvidence,
+                    0.35,
+                    "fallback"
+                ));
+            }
+        }
+
+        if (facts.stream().noneMatch(f -> "projects".equals(f.getDimension()))) {
+            fallbackUsed = true;
+            String fallbackProjects = analysis.getMentionedProjects() == null
+                ? ""
+                : String.join(" | ", analysis.getMentionedProjects());
+            if (!fallbackProjects.isBlank()) {
+                facts.add(new AnalysisFactDTO(
+                    "projects",
+                    "Constat projets produit via fallback technique (extraction sémantique incomplète).",
+                    truncateEvidence(fallbackProjects),
+                    0.35,
+                    "fallback"
+                ));
+            }
+        }
+
+        List<String> missing = analysis.getMissingInformation() == null
+            ? new ArrayList<>()
+            : new ArrayList<>(analysis.getMissingInformation());
+        if (facts.stream().noneMatch(f -> "motivation".equals(f.getDimension()))) {
+            missing.add("Aucune preuve textuelle explicite sur la motivation");
+        }
+        if (facts.stream().noneMatch(f -> "projects".equals(f.getDimension()))) {
+            missing.add("Aucune preuve textuelle explicite sur les projets");
+        }
+
+        List<AnalysisFactDTO> sanitizedFacts = sanitizeFacts(facts);
+
+        analysis.setAnalysisSchemaVersion("phase1.v1");
+        analysis.setSemanticFacts(sanitizedFacts);
+        analysis.setSemanticFallbackUsed(fallbackUsed);
+        analysis.setMissingInformation(missing.stream().distinct().collect(Collectors.toList()));
+    }
+
+    private List<AnalysisFactDTO> extractFactsFromAnswers(List<ChatAnswer> answers, String dimension) {
+        List<AnalysisFactDTO> facts = new ArrayList<>();
+        for (ChatAnswer answer : answers) {
+            String raw = answer.getAnswerText() == null ? "" : answer.getAnswerText().trim();
+            if (raw.isBlank()) {
+                continue;
+            }
+
+            String normalized = normalizeForSearch(raw);
+            double confidence = estimateConfidence(normalized);
+            String finding = buildFinding(dimension, normalized, confidence);
+
+            facts.add(new AnalysisFactDTO(
+                dimension,
+                finding,
+                truncateEvidence(raw),
+                confidence,
+                answer.getQuestionText() == null ? "" : answer.getQuestionText()
+            ));
+        }
+        return facts;
+    }
+
+    private String buildFinding(String dimension, String normalizedText, double confidence) {
+        if ("motivation".equals(dimension)) {
+            if (normalizedText.contains("poste") || normalizedText.contains("entreprise") || normalizedText.contains("mission")) {
+                return "Le candidat relie sa motivation au poste ou au contexte de l'entreprise.";
+            }
+            return confidence >= 0.65
+                ? "Le candidat exprime une motivation explicite, avec un niveau de détail modéré."
+                : "La motivation est mentionnée, mais reste générale et peu contextualisée.";
+        }
+
+        if (normalizedText.contains("role") || normalizedText.contains("resultat") || normalizedText.contains("stack")) {
+            return "Le candidat décrit un projet avec des éléments d'exécution (rôle, stack ou résultat).";
+        }
+        return confidence >= 0.65
+            ? "Le candidat mentionne au moins un projet exploitable pour discussion recruteur."
+            : "Un projet est mentionné, mais les détails d'exécution restent limités.";
+    }
+
+    private double estimateConfidence(String normalizedText) {
+        int length = normalizedText.length();
+        boolean hasContext = normalizedText.contains("parce") || normalizedText.contains("afin")
+            || normalizedText.contains("projet") || normalizedText.contains("developpe")
+            || normalizedText.contains("realis") || normalizedText.contains("github");
+
+        if (length >= 120 && hasContext) {
+            return 0.85;
+        }
+        if (length >= 60) {
+            return 0.65;
+        }
+        return 0.45;
+    }
+
+    private String truncateEvidence(String text) {
+        if (text == null) {
+            return "";
+        }
+        String value = text.trim();
+        if (value.length() <= 220) {
+            return value;
+        }
+        return value.substring(0, 220) + "...";
+    }
+
+    private Optional<AnalysisFactDTO> findFact(ChatAnswerAnalysisDTO analysis, String dimension) {
+        if (analysis.getSemanticFacts() == null) {
+            return Optional.empty();
+        }
+        return analysis.getSemanticFacts().stream()
+            .filter(fact -> dimension.equals(fact.getDimension()))
+            .findFirst();
+    }
+
+    private List<AnalysisFactDTO> sanitizeFacts(List<AnalysisFactDTO> facts) {
+        if (facts == null || facts.isEmpty()) {
+            return List.of();
+        }
+
+        return facts.stream()
+            .filter(Objects::nonNull)
+            .map(fact -> {
+                String dimension = fact.getDimension() == null || fact.getDimension().isBlank()
+                    ? "general"
+                    : fact.getDimension().trim();
+                String finding = fact.getFinding() == null ? "" : fact.getFinding().trim();
+                String evidence = fact.getEvidence() == null ? "" : fact.getEvidence().trim();
+                String sourceQuestion = fact.getSourceQuestion() == null ? "" : fact.getSourceQuestion().trim();
+                double confidence = Math.max(0.0, Math.min(1.0, fact.getConfidence()));
+                return new AnalysisFactDTO(dimension, finding, evidence, confidence, sourceQuestion);
+            })
+            .filter(fact -> !fact.getFinding().isBlank() && !fact.getEvidence().isBlank())
+            .collect(Collectors.toList());
     }
 
     private String describeAvailability(ChatAnswerAnalysisDTO analysis) {
@@ -603,6 +754,19 @@ public class ChatAnswerService {
             || question.contains("pourquoi")
             || question.contains("interet")
             || question.contains("envie");
+    }
+
+    private boolean isProjectAnswer(ChatAnswer answer) {
+        String key = normalizeForSearch(answer.getQuestionKey());
+        String question = normalizeForSearch(answer.getQuestionText());
+
+        return key.contains("projet")
+            || key.contains("portfolio")
+            || question.contains("projet")
+            || question.contains("realisation")
+            || question.contains("application")
+            || question.contains("github")
+            || question.contains("portfolio");
     }
 
     private String normalizeForSearch(String text) {

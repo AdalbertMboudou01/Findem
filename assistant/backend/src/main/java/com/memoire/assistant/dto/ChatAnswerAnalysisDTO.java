@@ -31,6 +31,11 @@ public class ChatAnswerAnalysisDTO {
     private List<String> strengths;
     private List<String> pointsToConfirm;
     private String recruiterGuidance;
+
+    // Phase 1: schema d'analyse unifie, preuve-based
+    private String analysisSchemaVersion;
+    private List<AnalysisFactDTO> semanticFacts;
+    private boolean semanticFallbackUsed;
     
     // Analyse disponibilité et rythme
     private String availabilityStatus; // IMMEDIATE, FUTURE, UNSPECIFIED
@@ -216,6 +221,30 @@ public class ChatAnswerAnalysisDTO {
 
     public void setRecruiterGuidance(String recruiterGuidance) {
         this.recruiterGuidance = recruiterGuidance;
+    }
+
+    public String getAnalysisSchemaVersion() {
+        return analysisSchemaVersion;
+    }
+
+    public void setAnalysisSchemaVersion(String analysisSchemaVersion) {
+        this.analysisSchemaVersion = analysisSchemaVersion;
+    }
+
+    public List<AnalysisFactDTO> getSemanticFacts() {
+        return semanticFacts;
+    }
+
+    public void setSemanticFacts(List<AnalysisFactDTO> semanticFacts) {
+        this.semanticFacts = semanticFacts;
+    }
+
+    public boolean isSemanticFallbackUsed() {
+        return semanticFallbackUsed;
+    }
+
+    public void setSemanticFallbackUsed(boolean semanticFallbackUsed) {
+        this.semanticFallbackUsed = semanticFallbackUsed;
     }
     
     public String getAvailabilityStatus() {
