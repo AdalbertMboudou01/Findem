@@ -5,6 +5,7 @@ import com.memoire.assistant.model.Recruiter;
 import com.memoire.assistant.model.User;
 import com.memoire.assistant.repository.RecruiterRepository;
 import com.memoire.assistant.repository.UserRepository;
+import com.memoire.assistant.security.TenantContext;
 import com.memoire.assistant.service.CompanyService;
 import com.memoire.assistant.dto.CompanyCreateRequest;
 import jakarta.validation.Valid;
@@ -20,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Collections;
 
 @RestController
 @RequestMapping("/api/companies")
@@ -33,11 +35,21 @@ public class CompanyController {
 
     @GetMapping
     public List<Company> getAllCompanies() {
-        return companyService.getAllCompanies();
+        UUID companyId = TenantContext.getCompanyId();
+        if (companyId == null) {
+            return Collections.emptyList();
+        }
+        return companyService.getCompanyById(companyId)
+            .map(List::of)
+            .orElseGet(Collections::emptyList);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<Company> getCompanyById(@PathVariable UUID id) {
+        UUID companyId = TenantContext.getCompanyId();
+        if (companyId == null || !companyId.equals(id)) {
+            return ResponseEntity.notFound().build();
+        }
         Optional<Company> company = companyService.getCompanyById(id);
         return company.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }

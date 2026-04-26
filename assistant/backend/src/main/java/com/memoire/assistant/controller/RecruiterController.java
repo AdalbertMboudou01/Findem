@@ -1,6 +1,7 @@
 package com.memoire.assistant.controller;
 
 import com.memoire.assistant.model.Recruiter;
+import com.memoire.assistant.security.TenantContext;
 import com.memoire.assistant.service.RecruiterService;
 import com.memoire.assistant.dto.RecruiterCreateRequest;
 import jakarta.validation.Valid;
@@ -20,12 +21,20 @@ public class RecruiterController {
 
     @GetMapping
     public List<Recruiter> getAllRecruiters() {
-        return recruiterService.getAllRecruiters();
+        UUID companyId = TenantContext.getCompanyId();
+        if (companyId == null) {
+            return java.util.Collections.emptyList();
+        }
+        return recruiterService.getRecruitersByCompanyId(companyId);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<Recruiter> getRecruiterById(@PathVariable UUID id) {
-        Optional<Recruiter> recruiter = recruiterService.getRecruiterById(id);
+        UUID companyId = TenantContext.getCompanyId();
+        if (companyId == null) {
+            return ResponseEntity.notFound().build();
+        }
+        Optional<Recruiter> recruiter = recruiterService.getRecruiterByIdAndCompanyId(id, companyId);
         return recruiter.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
@@ -42,7 +51,8 @@ public class RecruiterController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Recruiter> updateRecruiter(@PathVariable UUID id, @RequestBody Recruiter recruiter) {
-        if (!recruiterService.getRecruiterById(id).isPresent()) {
+        UUID companyId = TenantContext.getCompanyId();
+        if (companyId == null || !recruiterService.getRecruiterByIdAndCompanyId(id, companyId).isPresent()) {
             return ResponseEntity.notFound().build();
         }
         recruiter.setRecruiterId(id);
@@ -51,7 +61,8 @@ public class RecruiterController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteRecruiter(@PathVariable UUID id) {
-        if (!recruiterService.getRecruiterById(id).isPresent()) {
+        UUID companyId = TenantContext.getCompanyId();
+        if (companyId == null || !recruiterService.getRecruiterByIdAndCompanyId(id, companyId).isPresent()) {
             return ResponseEntity.notFound().build();
         }
         recruiterService.deleteRecruiter(id);

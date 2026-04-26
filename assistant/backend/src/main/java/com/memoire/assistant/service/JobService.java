@@ -3,11 +3,14 @@ package com.memoire.assistant.service;
 import com.memoire.assistant.model.Job;
 import com.memoire.assistant.model.Company;
 import com.memoire.assistant.model.Application;
+import com.memoire.assistant.model.Recruiter;
 import com.memoire.assistant.dto.JobCreateRequest;
 import com.memoire.assistant.dto.JobStatsDTO;
 import com.memoire.assistant.repository.JobRepository;
 import com.memoire.assistant.repository.CompanyRepository;
 import com.memoire.assistant.repository.ApplicationRepository;
+import com.memoire.assistant.repository.RecruiterRepository;
+import com.memoire.assistant.security.TenantContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,21 +35,28 @@ public class JobService {
     @Autowired
     private ApplicationRepository applicationRepository;
 
+    @Autowired
+    private RecruiterRepository recruiterRepository;
+
     public List<Job> getAllJobs() {
-        return jobRepository.findAll();
+        UUID companyId = requireCompanyId();
+        return jobRepository.findByCompany_CompanyId(companyId);
     }
     
     public List<Job> getActiveJobs() {
-        return jobRepository.findAll().stream()
+        UUID companyId = requireCompanyId();
+        return jobRepository.findByCompany_CompanyId(companyId).stream()
             .collect(Collectors.toList()); // Simplifié temporairement
     }
 
     public Optional<Job> getJobById(UUID id) {
-        return jobRepository.findById(id);
+        UUID companyId = requireCompanyId();
+        return jobRepository.findByJobIdAndCompany_CompanyId(id, companyId);
     }
     
     public Optional<Job> getJobWithStats(UUID id) {
-        Optional<Job> job = jobRepository.findById(id);
+        UUID companyId = requireCompanyId();
+        Optional<Job> job = jobRepository.findByJobIdAndCompany_CompanyId(id, companyId);
         if (job.isPresent()) {
             enrichJobWithStats(job.get());
         }
@@ -58,7 +68,18 @@ public class JobService {
     }
 
     public Job saveJob(Job job) {
+        UUID companyId = requireCompanyId();
         validateJob(job);
+
+        if (job.getCompany() == null || job.getCompany().getCompanyId() == null || !companyId.equals(job.getCompany().getCompanyId())) {
+            throw new IllegalArgumentException("L'offre n'appartient pas a votre entreprise");
+        }
+
+        if (job.getOwnerRecruiter() != null && job.getOwnerRecruiter().getRecruiterId() != null) {
+            recruiterRepository.findByRecruiterIdAndCompany_CompanyId(job.getOwnerRecruiter().getRecruiterId(), companyId)
+                .orElseThrow(() -> new IllegalArgumentException("Le recruteur proprietaire n'appartient pas a votre entreprise"));
+        }
+
         if (job.getJobId() == null) {
             job.setCreatedAt(new Date());
             if (job.getSlug() == null || job.getSlug().trim().isEmpty()) {
@@ -68,14 +89,20 @@ public class JobService {
         return jobRepository.save(job);
     }
     
-    public Job createJobFromRequest(JobCreateRequest request, UUID companyId) {
+    public Job createJobFromRequest(JobCreateRequest request) {
+        UUID companyId = requireCompanyId();
+        UUID recruiterId = requireRecruiterId();
         Optional<Company> company = companyRepository.findById(companyId);
         if (!company.isPresent()) {
             throw new IllegalArgumentException("Entreprise non trouvée");
         }
+
+        Recruiter owner = recruiterRepository.findByRecruiterIdAndCompany_CompanyId(recruiterId, companyId)
+            .orElseThrow(() -> new IllegalArgumentException("Recruteur proprietaire invalide"));
         
         Job job = new Job();
         job.setCompany(company.get());
+        job.setOwnerRecruiter(owner);
         job.setTitle(request.getTitle());
         job.setDescription(request.getDescription());
         job.setLocation(request.getLocation());
@@ -88,6 +115,12 @@ public class JobService {
     }
 
     public void deleteJob(UUID id) {
+        UUID companyId = requireCompanyId();
+        Optional<Job> jobOpt = jobRepository.findByJobIdAndCompany_CompanyId(id, companyId);
+        if (jobOpt.isEmpty()) {
+            throw new IllegalArgumentException("Offre non trouvee pour votre entreprise");
+        }
+
         // Vérifier s'il y a des candidatures associées
         List<Application> applications = applicationRepository.findByJob_JobId(id);
         
@@ -99,11 +132,17 @@ public class JobService {
     }
     
     public List<Application> getJobApplications(UUID jobId) {
+        UUID companyId = requireCompanyId();
+        Optional<Job> jobOpt = jobRepository.findByJobIdAndCompany_CompanyId(jobId, companyId);
+        if (jobOpt.isEmpty()) {
+            throw new IllegalArgumentException("Offre non trouvee pour votre entreprise");
+        }
         return applicationRepository.findByJob_JobId(jobId);
     }
     
     public JobStatsDTO getJobStatistics(UUID jobId) {
-        Optional<Job> job = jobRepository.findById(jobId);
+        UUID companyId = requireCompanyId();
+        Optional<Job> job = jobRepository.findByJobIdAndCompany_CompanyId(jobId, companyId);
         if (!job.isPresent()) {
             throw new IllegalArgumentException("Offre non trouvée");
         }
@@ -136,12 +175,11 @@ public class JobService {
     }
     
     public List<Job> searchJobs(String keyword, UUID companyId, String location, List<String> technologies) {
-        return jobRepository.findAll().stream()
+        UUID contextCompanyId = requireCompanyId();
+        return jobRepository.findByCompany_CompanyId(contextCompanyId).stream()
             .filter(job -> keyword == null || 
                 job.getTitle().toLowerCase().contains(keyword.toLowerCase()) ||
                 (job.getDescription() != null && job.getDescription().toLowerCase().contains(keyword.toLowerCase())))
-            .filter(job -> companyId == null || 
-                (job.getCompany() != null && companyId.equals(job.getCompany().getCompanyId())))
             .filter(job -> location == null || 
                 (job.getLocation() != null && job.getLocation().toLowerCase().contains(location.toLowerCase())))
             .filter(job -> technologies == null || technologies.isEmpty() ||
@@ -152,7 +190,8 @@ public class JobService {
     }
     
     public String generateChatbotUrl(UUID jobId) {
-        Optional<Job> job = jobRepository.findById(jobId);
+        UUID companyId = requireCompanyId();
+        Optional<Job> job = jobRepository.findByJobIdAndCompany_CompanyId(jobId, companyId);
         if (!job.isPresent()) {
             throw new IllegalArgumentException("Offre non trouvée");
         }
@@ -213,5 +252,21 @@ public class JobService {
     private void enrichJobWithStats(Job job) {
         // Enrichir l'objet Job avec des statistiques si nécessaire
         // Cette méthode peut être étendue pour ajouter des données calculées
+    }
+
+    private UUID requireCompanyId() {
+        UUID companyId = TenantContext.getCompanyId();
+        if (companyId == null) {
+            throw new IllegalStateException("Contexte entreprise manquant");
+        }
+        return companyId;
+    }
+
+    private UUID requireRecruiterId() {
+        UUID recruiterId = TenantContext.getRecruiterId();
+        if (recruiterId == null) {
+            throw new IllegalStateException("Contexte recruteur manquant");
+        }
+        return recruiterId;
     }
 }
