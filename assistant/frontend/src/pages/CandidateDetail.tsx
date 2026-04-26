@@ -252,6 +252,10 @@ export default function CandidateDetail() {
       setFactFeedbackError('La correction est obligatoire quand la decision est CORRECTED.');
       return;
     }
+    if (draft.decision === 'REJECTED' && !draft.reviewerComment.trim()) {
+      setFactFeedbackError('Un commentaire est obligatoire quand la decision est REJECTED.');
+      return;
+    }
 
     updateDraft(key, { saving: true });
     setFactFeedbackError('');

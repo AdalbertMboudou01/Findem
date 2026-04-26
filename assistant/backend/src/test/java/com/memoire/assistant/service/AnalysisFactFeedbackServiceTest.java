@@ -111,6 +111,27 @@ class AnalysisFactFeedbackServiceTest {
     }
 
     @Test
+    @DisplayName("Devrait rejeter REJECTED sans reviewerComment")
+    void saveFeedbackRejectedWithoutCommentShouldFail() {
+        UUID appId = UUID.randomUUID();
+        Application application = new Application();
+        application.setApplicationId(appId);
+
+        AnalysisFactFeedbackRequest request = new AnalysisFactFeedbackRequest();
+        request.setDimension("projects");
+        request.setFinding("Projet non fiable");
+        request.setEvidence("Preuve contestable");
+        request.setDecision("REJECTED");
+        request.setReviewerComment("  ");
+
+        when(applicationRepository.findById(appId)).thenReturn(Optional.of(application));
+
+        RuntimeException error = assertThrows(RuntimeException.class, () -> service.saveFeedback(appId, request));
+        assertTrue(error.getMessage().contains("reviewerComment"));
+        verify(feedbackRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("Devrait retourner l'historique des feedbacks")
     void getFeedbackByApplication() {
         UUID appId = UUID.randomUUID();

@@ -36,6 +36,9 @@ public class AnalysisFactFeedbackService {
                 throw new RuntimeException("correctedFinding est obligatoire quand decision=CORRECTED");
             }
         }
+        if ("REJECTED".equals(decision) && safe(request.getReviewerComment()).isBlank()) {
+            throw new RuntimeException("reviewerComment est obligatoire quand decision=REJECTED");
+        }
 
         AnalysisFactFeedback feedback = new AnalysisFactFeedback();
         feedback.setApplication(application);
