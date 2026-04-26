@@ -68,7 +68,10 @@ public class CompanyInvitationService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Un utilisateur avec cet email existe deja");
         }
 
-        if (recruiterRepository.findByCompany_CompanyIdAndEmailIgnoreCase(companyId, targetEmail).isPresent()) {
+        boolean memberAlreadyExists = recruiterRepository.findByCompany_CompanyId(companyId)
+            .stream()
+            .anyMatch(r -> r.getEmail() != null && r.getEmail().equalsIgnoreCase(targetEmail));
+        if (memberAlreadyExists) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ce membre existe deja dans votre entreprise");
         }
 
