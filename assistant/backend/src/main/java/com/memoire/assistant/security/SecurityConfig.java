@@ -62,6 +62,7 @@ public class SecurityConfig {
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/jobs/*/public").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/chat/answer").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/apply").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/company-members/accept-invitation").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET,
                     "/swagger-ui/**",
                     "/swagger-ui.html",

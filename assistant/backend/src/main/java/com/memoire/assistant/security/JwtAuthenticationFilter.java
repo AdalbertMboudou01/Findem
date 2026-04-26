@@ -1,5 +1,9 @@
 package com.memoire.assistant.security;
 
+import com.memoire.assistant.model.Recruiter;
+import com.memoire.assistant.model.User;
+import com.memoire.assistant.repository.RecruiterRepository;
+import com.memoire.assistant.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,6 +17,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Optional;
+import java.util.UUID;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -20,10 +26,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private JwtUtil jwtUtil;
     @Autowired
     private CustomUserDetailsService userDetailsService;
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private RecruiterRepository recruiterRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
+        TenantContext.clear();
         
         String path = request.getRequestURI();
         
@@ -53,8 +64,37 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         userDetails, null, userDetails.getAuthorities());
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
+
+                String role = jwtUtil.getRoleFromToken(token);
+                UUID userId = jwtUtil.getUserIdFromToken(token);
+                UUID recruiterId = jwtUtil.getRecruiterIdFromToken(token);
+                UUID companyId = jwtUtil.getCompanyIdFromToken(token);
+
+                if (userId == null || ("RECRUITER".equalsIgnoreCase(role) || "ADMIN".equalsIgnoreCase(role))) {
+                    Optional<User> userOpt = userRepository.findByEmail(username);
+                    if (userOpt.isPresent()) {
+                        userId = userOpt.get().getId();
+                        Optional<Recruiter> recruiterOpt = recruiterRepository.findByAuthUserId(userId);
+                        if (recruiterOpt.isPresent()) {
+                            Recruiter recruiter = recruiterOpt.get();
+                            recruiterId = recruiter.getRecruiterId();
+                            if (recruiter.getCompany() != null) {
+                                companyId = recruiter.getCompany().getCompanyId();
+                            }
+                            if (role == null || role.isBlank()) {
+                                role = recruiter.getRole();
+                            }
+                        }
+                    }
+                }
+
+                TenantContext.set(userId, recruiterId, companyId, role);
             }
         }
-        filterChain.doFilter(request, response);
+        try {
+            filterChain.doFilter(request, response);
+        } finally {
+            TenantContext.clear();
+        }
     }
 }

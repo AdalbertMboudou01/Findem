@@ -11,4 +11,5 @@ import java.util.Optional;
 public interface JobRepository extends JpaRepository<Job, UUID> {
     Optional<Job> findBySlug(String slug);
     List<Job> findByCompany_CompanyId(UUID companyId);
+    Optional<Job> findByJobIdAndCompany_CompanyId(UUID jobId, UUID companyId);
 }

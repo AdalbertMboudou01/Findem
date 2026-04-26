@@ -8,4 +8,5 @@ import java.util.Optional;
 public interface RecruiterRepository extends JpaRepository<Recruiter, UUID> {
     java.util.List<Recruiter> findByCompany_CompanyId(UUID companyId);
     Optional<Recruiter> findByAuthUserId(UUID authUserId);
+    Optional<Recruiter> findByRecruiterIdAndCompany_CompanyId(UUID recruiterId, UUID companyId);
 }

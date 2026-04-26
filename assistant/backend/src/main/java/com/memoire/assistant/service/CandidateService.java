@@ -6,6 +6,7 @@ import com.memoire.assistant.repository.CandidateRepository;
 import com.memoire.assistant.model.Application;
 import com.memoire.assistant.repository.ApplicationRepository;
 import com.memoire.assistant.dto.CandidateSummaryDTO;
+import com.memoire.assistant.security.TenantContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -23,11 +24,11 @@ public class CandidateService {
     private ApplicationRepository applicationRepository;
 
     public List<Candidate> getAllCandidates() {
-        return candidateRepository.findAll();
+        return candidateRepository.findAllByCompanyId(requireCompanyId());
     }
 
     public Optional<Candidate> getCandidateById(UUID id) {
-        return candidateRepository.findById(id);
+        return candidateRepository.findByCandidateIdAndCompanyId(id, requireCompanyId());
     }
 
     public Candidate saveCandidate(Candidate candidate) {
@@ -35,18 +36,26 @@ public class CandidateService {
     }
 
     public void deleteCandidate(UUID id) {
+        Optional<Candidate> candidateOpt = candidateRepository.findByCandidateIdAndCompanyId(id, requireCompanyId());
+        if (candidateOpt.isEmpty()) {
+            throw new IllegalArgumentException("Candidat introuvable pour votre entreprise");
+        }
         candidateRepository.deleteById(id);
     }
 
     public List<Candidate> getPoolCandidates() {
-        return candidateRepository.findByInPoolTrue();
+        return candidateRepository.findInPoolByCompanyId(requireCompanyId());
     }
 
     public Optional<CandidateSummaryDTO> getCandidateSummary(UUID id) {
-        Optional<Candidate> candidateOpt = candidateRepository.findById(id);
+        Optional<Candidate> candidateOpt = candidateRepository.findByCandidateIdAndCompanyId(id, requireCompanyId());
         if (candidateOpt.isEmpty()) return Optional.empty();
         Candidate candidate = candidateOpt.get();
         List<Application> applications = applicationRepository.findByCandidate_CandidateId(id);
+        UUID companyId = requireCompanyId();
+        applications = applications.stream()
+            .filter(a -> a.getJob() != null && a.getJob().getCompany() != null && companyId.equals(a.getJob().getCompany().getCompanyId()))
+            .toList();
         return Optional.of(createCandidateSummary(candidate, applications));
     }
 
@@ -65,5 +74,13 @@ public class CandidateService {
                 .findFirst().orElse(null);
         dto.setLastStatus(lastStatus);
         return dto;
+    }
+
+    private UUID requireCompanyId() {
+        UUID companyId = TenantContext.getCompanyId();
+        if (companyId == null) {
+            throw new IllegalStateException("Contexte entreprise manquant");
+        }
+        return companyId;
     }
 }

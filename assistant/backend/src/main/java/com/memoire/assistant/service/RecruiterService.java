@@ -18,8 +18,16 @@ public class RecruiterService {
         return recruiterRepository.findAll();
     }
 
+    public List<Recruiter> getRecruitersByCompanyId(UUID companyId) {
+        return recruiterRepository.findByCompany_CompanyId(companyId);
+    }
+
     public Optional<Recruiter> getRecruiterById(UUID id) {
         return recruiterRepository.findById(id);
+    }
+
+    public Optional<Recruiter> getRecruiterByIdAndCompanyId(UUID recruiterId, UUID companyId) {
+        return recruiterRepository.findByRecruiterIdAndCompany_CompanyId(recruiterId, companyId);
     }
 
     public Recruiter saveRecruiter(Recruiter recruiter) {
