@@ -163,37 +163,46 @@ public class ChatAnswerController {
     @GetMapping("/feedback/{applicationId}")
     @PreAuthorize("hasRole('RECRUITER') or hasRole('ADMIN')")
     @Operation(summary = "Lister les corrections recruteur", description = "Retourne l'historique des corrections de constats pour une candidature")
-    public ResponseEntity<List<AnalysisFactFeedbackResponse>> getAnalysisFeedback(
+    public ResponseEntity<?> getAnalysisFeedback(
             @Parameter(description = "ID de la candidature") @PathVariable UUID applicationId) {
         try {
             return ResponseEntity.ok(analysisFactFeedbackService.getFeedbackByApplication(applicationId));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                "message", e.getMessage() == null ? "Erreur lors de la lecture des corrections" : e.getMessage(),
+                "status", "error"
+            ));
         }
     }
 
     @GetMapping("/feedback/{applicationId}/latest")
     @PreAuthorize("hasRole('RECRUITER') or hasRole('ADMIN')")
     @Operation(summary = "Lister les dernieres corrections par constat", description = "Retourne uniquement la derniere decision pour chaque constat")
-    public ResponseEntity<List<AnalysisFactFeedbackResponse>> getLatestAnalysisFeedback(
+    public ResponseEntity<?> getLatestAnalysisFeedback(
             @Parameter(description = "ID de la candidature") @PathVariable UUID applicationId) {
         try {
             return ResponseEntity.ok(analysisFactFeedbackService.getLatestFeedbackByApplication(applicationId));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                "message", e.getMessage() == null ? "Erreur lors de la lecture des dernieres corrections" : e.getMessage(),
+                "status", "error"
+            ));
         }
     }
 
     @PostMapping("/feedback/{applicationId}")
     @PreAuthorize("hasRole('RECRUITER') or hasRole('ADMIN')")
     @Operation(summary = "Ajouter une correction recruteur", description = "Enregistre une validation/correction/rejet d'un constat d'analyse")
-    public ResponseEntity<AnalysisFactFeedbackResponse> saveAnalysisFeedback(
+    public ResponseEntity<?> saveAnalysisFeedback(
             @Parameter(description = "ID de la candidature") @PathVariable UUID applicationId,
             @RequestBody AnalysisFactFeedbackRequest request) {
         try {
             return ResponseEntity.ok(analysisFactFeedbackService.saveFeedback(applicationId, request));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                "message", e.getMessage() == null ? "Erreur lors de l'enregistrement de la correction" : e.getMessage(),
+                "status", "error"
+            ));
         }
     }
 }

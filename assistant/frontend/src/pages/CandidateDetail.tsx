@@ -278,8 +278,8 @@ export default function CandidateDetail() {
         ...prev,
         [key]: { decision: 'CONFIRMED', correctedFinding: '', reviewerComment: '', saving: false },
       }));
-    } catch {
-      setFactFeedbackError('Impossible d\'enregistrer cette correction.');
+    } catch (err) {
+      setFactFeedbackError(err instanceof Error ? err.message : 'Impossible d\'enregistrer cette correction.');
       updateDraft(key, { saving: false });
     }
   }
@@ -481,20 +481,26 @@ export default function CandidateDetail() {
                   <p className="text-caption1 text-t-fg3 mb-3">Schema: {c.analysis_schema_version}</p>
                 )}
                 <ul className="space-y-3">
-                  {c.analysis_facts.map((fact, i) => (
+                  {c.analysis_facts.map((fact, i) => {
+                    const key = feedbackKey(fact.dimension, fact.finding);
+                    const draft = ensureDraft(key);
+                    const latestFeedback = latestFactFeedback.find((entry) => entry.dimension === fact.dimension && entry.finding === fact.finding);
+                    const displayFinding = latestFeedback?.decision === 'CORRECTED' && latestFeedback.corrected_finding
+                      ? latestFeedback.corrected_finding
+                      : fact.finding;
+
+                    return (
                     <li key={`${fact.dimension}-${i}`} className="border border-t-stroke3 rounded-fluent p-3 bg-t-bg2">
-                      <p className="text-body1 text-t-fg1 font-medium">{fact.finding}</p>
+                      <p className="text-body1 text-t-fg1 font-medium">{displayFinding}</p>
+                      {latestFeedback?.decision === 'CORRECTED' && latestFeedback.corrected_finding && (
+                        <p className="text-caption1 text-t-fg3 mt-1">Constat initial: {fact.finding}</p>
+                      )}
                       <p className="text-caption1 text-t-fg3 mt-1">Preuve: {fact.evidence}</p>
                       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-caption1 text-t-fg3">
                         <span>Dimension: {fact.dimension}</span>
                         <span>Confiance: {Math.round(fact.confidence * 100)}%</span>
                         {fact.source_question && <span>Source: {fact.source_question}</span>}
                       </div>
-                      {(() => {
-                        const key = feedbackKey(fact.dimension, fact.finding);
-                        const draft = ensureDraft(key);
-                        const latestFeedback = latestFactFeedback.find((entry) => entry.dimension === fact.dimension && entry.finding === fact.finding);
-                        return (
                           <div className="mt-3 border-t border-t-stroke3 pt-3">
                             {latestFeedback && (
                               <p className="text-caption1 text-t-fg3 mb-2">
@@ -555,10 +561,8 @@ export default function CandidateDetail() {
                               </button>
                             </div>
                           </div>
-                        );
-                      })()}
                     </li>
-                  ))}
+                  );})}
                 </ul>
                 {factFeedbackError && (
                   <p className="text-caption1 text-t-danger mt-3">{factFeedbackError}</p>
