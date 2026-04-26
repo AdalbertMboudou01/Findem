@@ -29,42 +29,7 @@ public class ChatAnswerService {
     @Autowired
     private GitHubAnalysisService gitHubAnalysisService;
     
-    // Mots-clés pour l'analyse de motivation
-    private static final Set<String> MOTIVATION_KEYWORDS_HIGH = Set.of(
-        "passionne", "passion", "motive", "motivation", "enthousiaste",
-        "determine", "ambitieux", "curieux",
-        "apprentissage", "apprendre", "decouvrir", "defis", "challenge", "innovant"
-    );
-    
-    private static final Set<String> MOTIVATION_KEYWORDS_MEDIUM = Set.of(
-        "interesse", "attire", "opportunite", "experience",
-        "developper", "competences", "carriere", "professionnel"
-    );
-    
-    // Mots-clés techniques
-    private static final Set<String> TECHNICAL_KEYWORDS = Set.of(
-        "java", "javascript", "python", "react", "vue", "angular", "spring", "node",
-        "docker", "kubernetes", "aws", "azure", "git", "github", "sql", "mongodb",
-        "api", "rest", "microservices", "frontend", "backend", "fullstack", "devops"
-    );
-    
-    // Mots-clés de disponibilité
-    private static final Set<String> AVAILABILITY_IMMEDIATE = Set.of(
-        "immédiat", "immédiate", "tout de suite", "maintenant", "disponible", "sans délai"
-    );
-    
-    private static final Set<String> AVAILABILITY_FUTURE = Set.of(
-        "mois", "semaines", "année", "bientôt", "prochainement", "fin", "après"
-    );
-    
-    // Mots-clés de rythme d'alternance
-    private static final Set<String> RHYTHM_FULL_TIME = Set.of(
-        "3 jours", "4 jours", "semaine", "plein temps", "temps plein", "classique"
-    );
-    
-    private static final Set<String> RHYTHM_PART_TIME = Set.of(
-        "2 jours", "1 jour", "mi-temps", "partiel", "réduit"
-    );
+    private static final Pattern TOKEN_SPLIT_PATTERN = Pattern.compile("[,;/\\n]");
     
     /**
      * Analyse complète des réponses du chatbot pour une candidature
@@ -113,46 +78,17 @@ public class ChatAnswerService {
             return;
         }
 
-        List<String> motivationKeywords = new ArrayList<>();
-        int highScore = 0;
-        int mediumScore = 0;
-        StringBuilder motivationText = new StringBuilder();
-        
-        for (ChatAnswer answer : motivationAnswers) {
-            String text = normalizeForSearch(answer.getAnswerText());
-            motivationText.append(answer.getAnswerText()).append(" ");
-            
-            // Compter les mots-clés
-            for (String keyword : MOTIVATION_KEYWORDS_HIGH) {
-                if (text.contains(keyword)) {
-                    highScore++;
-                    motivationKeywords.add(keyword);
-                }
-            }
-            
-            for (String keyword : MOTIVATION_KEYWORDS_MEDIUM) {
-                if (text.contains(keyword)) {
-                    mediumScore++;
-                    motivationKeywords.add(keyword);
-                }
-            }
-        }
-        
-        // Déterminer le niveau de motivation
-        if (highScore >= 3) {
-            analysis.setMotivationLevel("HIGH");
-        } else if (highScore >= 1 || mediumScore >= 2) {
-            analysis.setMotivationLevel("MEDIUM");
-        } else {
-            analysis.setMotivationLevel("LOW");
-        }
-        
-        // Vérifier si la motivation est spécifique
-        analysis.setHasSpecificMotivation(highScore >= 2);
-        
-        // Générer un résumé
-        analysis.setMotivationSummary(generateMotivationSummary(motivationText.toString().trim()));
-        analysis.setMotivationKeywords(motivationKeywords.stream().distinct().collect(Collectors.toList()));
+        String motivationText = motivationAnswers.stream()
+            .map(ChatAnswer::getAnswerText)
+            .filter(Objects::nonNull)
+            .map(String::trim)
+            .filter(text -> !text.isBlank())
+            .collect(Collectors.joining(" "));
+
+        analysis.setMotivationLevel("MEDIUM");
+        analysis.setHasSpecificMotivation(!motivationText.isBlank());
+        analysis.setMotivationSummary(generateMotivationSummary(motivationText));
+        analysis.setMotivationKeywords(Collections.emptyList());
     }
 
     private void enrichWithGitHubAndPortfolio(Application application, ChatAnswerAnalysisDTO analysis) {
@@ -239,46 +175,31 @@ public class ChatAnswerService {
     private void analyzeTechnicalProfile(List<ChatAnswer> answers, ChatAnswerAnalysisDTO analysis) {
         List<String> technicalSkills = new ArrayList<>();
         List<String> mentionedProjects = new ArrayList<>();
-        int technicalScore = 0;
         boolean hasProjectDetails = false;
         boolean hasGitHubOrPortfolio = false;
         
         for (ChatAnswer answer : answers) {
-            String text = answer.getAnswerText().toLowerCase();
-            
-            // Extraire les compétences techniques
-            for (String skill : TECHNICAL_KEYWORDS) {
-                if (text.contains(skill)) {
-                    technicalScore++;
-                    technicalSkills.add(skill);
-                }
+            String raw = answer.getAnswerText() == null ? "" : answer.getAnswerText().trim();
+            String text = normalizeForSearch(raw);
+
+            if (isTechnicalAnswer(answer)) {
+                technicalSkills.addAll(extractListedItems(raw));
             }
-            
-            // Détecter les mentions de projets
-            if (text.contains("projet") || text.contains("projet") || 
-                text.contains("réalisation") || text.contains("application")) {
-                mentionedProjects.add(extractProjectName(answer.getAnswerText()));
+
+            if (isProjectAnswer(answer)) {
                 hasProjectDetails = true;
+                mentionedProjects.add(truncateEvidence(raw));
             }
-            
-            // Détecter GitHub/portfolio
-            if (text.contains("github.com") || text.contains("portfolio") || 
-                text.contains("gitlab") || text.contains("bitbucket")) {
+
+            if (text.contains("github.com") || text.contains("portfolio") || text.contains("gitlab") || text.contains("bitbucket")) {
                 hasGitHubOrPortfolio = true;
             }
         }
-        
-        // Déterminer le niveau technique
-        if (technicalScore >= 5) {
-            analysis.setTechnicalLevel("STRONG");
-        } else if (technicalScore >= 2) {
-            analysis.setTechnicalLevel("MEDIUM");
-        } else {
-            analysis.setTechnicalLevel("WEAK");
-        }
+
+        analysis.setTechnicalLevel(technicalSkills.isEmpty() ? "WEAK" : "MEDIUM");
         
         analysis.setTechnicalSkills(technicalSkills.stream().distinct().collect(Collectors.toList()));
-        analysis.setMentionedProjects(mentionedProjects.stream().distinct().collect(Collectors.toList()));
+        analysis.setMentionedProjects(mentionedProjects.stream().filter(v -> !v.isBlank()).distinct().collect(Collectors.toList()));
         analysis.setHasProjectDetails(hasProjectDetails);
         analysis.setHasGitHubOrPortfolio(hasGitHubOrPortfolio);
     }
@@ -287,88 +208,38 @@ public class ChatAnswerService {
      * Analyse de la disponibilité et du rythme d'alternance
      */
     private void analyzeAvailability(List<ChatAnswer> answers, ChatAnswerAnalysisDTO analysis) {
-        String availabilityText = "";
-        boolean hasClearAvailability = false;
-        
-        for (ChatAnswer answer : answers) {
-            String text = answer.getAnswerText().toLowerCase();
-            availabilityText += text + " ";
-            
-            // Détecter la disponibilité
-            for (String keyword : AVAILABILITY_IMMEDIATE) {
-                if (text.contains(keyword)) {
-                    analysis.setAvailabilityStatus("IMMEDIATE");
-                    hasClearAvailability = true;
-                    break;
-                }
-            }
-            
-            for (String keyword : AVAILABILITY_FUTURE) {
-                if (text.contains(keyword)) {
-                    analysis.setAvailabilityStatus("FUTURE");
-                    hasClearAvailability = true;
-                    break;
-                }
-            }
-            
-            // Détecter le rythme d'alternance
-            for (String rhythm : RHYTHM_FULL_TIME) {
-                if (text.contains(rhythm)) {
-                    analysis.setAlternanceRhythm("FULL_TIME");
-                    hasClearAvailability = true;
-                    break;
-                }
-            }
-            
-            for (String rhythm : RHYTHM_PART_TIME) {
-                if (text.contains(rhythm)) {
-                    analysis.setAlternanceRhythm("PART_TIME");
-                    hasClearAvailability = true;
-                    break;
-                }
-            }
-        }
-        
-        if (analysis.getAvailabilityStatus() == null) {
-            analysis.setAvailabilityStatus("UNSPECIFIED");
-        }
-        
-        if (analysis.getAlternanceRhythm() == null) {
-            analysis.setAlternanceRhythm("FLEXIBLE");
-        }
-        
-        analysis.setHasClearAvailability(hasClearAvailability);
+        boolean hasAvailabilityAnswer = answers.stream()
+            .filter(this::isAvailabilityAnswer)
+            .map(ChatAnswer::getAnswerText)
+            .filter(Objects::nonNull)
+            .map(String::trim)
+            .anyMatch(v -> !v.isBlank());
+
+        boolean hasRhythmAnswer = answers.stream()
+            .filter(this::isRhythmAnswer)
+            .map(ChatAnswer::getAnswerText)
+            .filter(Objects::nonNull)
+            .map(String::trim)
+            .anyMatch(v -> !v.isBlank());
+
+        analysis.setAvailabilityStatus("UNSPECIFIED");
+        analysis.setAlternanceRhythm("FLEXIBLE");
+        analysis.setHasClearAvailability(hasAvailabilityAnswer || hasRhythmAnswer);
     }
     
     /**
      * Analyse de la localisation
      */
     private void analyzeLocation(List<ChatAnswer> answers, ChatAnswerAnalysisDTO analysis, Job job) {
-        String jobLocation = job.getLocation().toLowerCase();
-        boolean hasMobility = false;
-        String locationMatch = "INCOMPATIBLE";
-        
-        for (ChatAnswer answer : answers) {
-            String text = answer.getAnswerText().toLowerCase();
-            
-            // Vérifier la localisation
-            if (text.contains(jobLocation) || text.contains("même ville") || 
-                text.contains("local")) {
-                locationMatch = "PERFECT";
-            }
-            
-            // Vérifier la mobilité et le télétravail
-            if (text.contains("télétravail") || text.contains("remote") || 
-                text.contains("déplacement") || text.contains("mobile")) {
-                hasMobility = true;
-                if (locationMatch.equals("INCOMPATIBLE")) {
-                    locationMatch = "REMOTE_COMPATIBLE";
-                }
-            }
-        }
-        
-        analysis.setLocationMatch(locationMatch);
-        analysis.setHasMobility(hasMobility);
+        boolean hasLocationEvidence = answers.stream()
+            .filter(this::isLocationAnswer)
+            .map(ChatAnswer::getAnswerText)
+            .filter(Objects::nonNull)
+            .map(String::trim)
+            .anyMatch(v -> !v.isBlank());
+
+        analysis.setLocationMatch(hasLocationEvidence ? "REMOTE_COMPATIBLE" : "INCOMPATIBLE");
+        analysis.setHasMobility(hasLocationEvidence);
     }
     
     /**
@@ -379,14 +250,14 @@ public class ChatAnswerService {
         List<String> missingInfo = new ArrayList<>();
         
         // Motivation (25%)
-        if (analysis.getMotivationLevel() != null && !analysis.getMotivationLevel().equals("LOW")) {
+        if (analysis.getMotivationSummary() != null && !analysis.getMotivationSummary().isBlank() && !"Motivation non fournie.".equals(analysis.getMotivationSummary())) {
             score += 0.25;
         } else {
             missingInfo.add("Motivation insuffisante");
         }
         
         // Profil technique (25%)
-        if (analysis.getTechnicalLevel() != null && !analysis.getTechnicalLevel().equals("WEAK")) {
+        if (analysis.getTechnicalSkills() != null && !analysis.getTechnicalSkills().isEmpty()) {
             score += 0.25;
         } else {
             missingInfo.add("Profil technique faible");
@@ -422,22 +293,8 @@ public class ChatAnswerService {
      */
     private void detectInconsistencies(List<ChatAnswer> answers, ChatAnswerAnalysisDTO analysis) {
         List<String> inconsistencies = new ArrayList<>();
-        
-        // Incohérence motivation vs expérience
-        if (analysis.getMotivationLevel().equals("HIGH") && 
-            analysis.getTechnicalLevel().equals("WEAK")) {
-            inconsistencies.add("Motivation élevée mais profil technique faible");
-        }
-        
-        // Incohérence disponibilité
-        if (analysis.getAvailabilityStatus().equals("IMMEDIATE") && 
-            analysis.getAlternanceRhythm().equals("PART_TIME")) {
-            inconsistencies.add("Disponibilité immédiate mais rythme partiel");
-        }
-        
-        // Incohérence localisation
-        if (analysis.getLocationMatch().equals("INCOMPATIBLE") && !analysis.isHasMobility()) {
-            inconsistencies.add("Localisation incompatible sans mobilité");
+        if ((analysis.getTechnicalSkills() == null || analysis.getTechnicalSkills().isEmpty()) && analysis.isHasProjectDetails()) {
+            inconsistencies.add("Projets mentionnés sans technologies explicitement listées");
         }
         
         analysis.setInconsistencies(inconsistencies);
@@ -606,9 +463,8 @@ public class ChatAnswerService {
                 continue;
             }
 
-            String normalized = normalizeForSearch(raw);
-            double confidence = estimateConfidence(normalized);
-            String finding = buildFinding(dimension, normalized, confidence);
+            double confidence = answer.getQuestionText() == null || answer.getQuestionText().isBlank() ? 0.70 : 0.80;
+            String finding = buildFinding(dimension);
 
             facts.add(new AnalysisFactDTO(
                 dimension,
@@ -621,37 +477,16 @@ public class ChatAnswerService {
         return facts;
     }
 
-    private String buildFinding(String dimension, String normalizedText, double confidence) {
+    private String buildFinding(String dimension) {
         if ("motivation".equals(dimension)) {
-            if (normalizedText.contains("poste") || normalizedText.contains("entreprise") || normalizedText.contains("mission")) {
-                return "Le candidat relie sa motivation au poste ou au contexte de l'entreprise.";
-            }
-            return confidence >= 0.65
-                ? "Le candidat exprime une motivation explicite, avec un niveau de détail modéré."
-                : "La motivation est mentionnée, mais reste générale et peu contextualisée.";
+            return "Le candidat fournit un élément explicite de motivation.";
         }
 
-        if (normalizedText.contains("role") || normalizedText.contains("resultat") || normalizedText.contains("stack")) {
-            return "Le candidat décrit un projet avec des éléments d'exécution (rôle, stack ou résultat).";
+        if ("projects".equals(dimension)) {
+            return "Le candidat décrit un projet ou une réalisation.";
         }
-        return confidence >= 0.65
-            ? "Le candidat mentionne au moins un projet exploitable pour discussion recruteur."
-            : "Un projet est mentionné, mais les détails d'exécution restent limités.";
-    }
 
-    private double estimateConfidence(String normalizedText) {
-        int length = normalizedText.length();
-        boolean hasContext = normalizedText.contains("parce") || normalizedText.contains("afin")
-            || normalizedText.contains("projet") || normalizedText.contains("developpe")
-            || normalizedText.contains("realis") || normalizedText.contains("github");
-
-        if (length >= 120 && hasContext) {
-            return 0.85;
-        }
-        if (length >= 60) {
-            return 0.65;
-        }
-        return 0.45;
+        return "Le candidat fournit une information exploitable.";
     }
 
     private String truncateEvidence(String text) {
@@ -769,6 +604,64 @@ public class ChatAnswerService {
             || question.contains("portfolio");
     }
 
+    private boolean isTechnicalAnswer(ChatAnswer answer) {
+        String key = normalizeForSearch(answer.getQuestionKey());
+        String question = normalizeForSearch(answer.getQuestionText());
+
+        return key.contains("tech")
+            || key.contains("skill")
+            || key.contains("competence")
+            || question.contains("competence")
+            || question.contains("technique")
+            || question.contains("stack")
+            || question.contains("technologie");
+    }
+
+    private boolean isAvailabilityAnswer(ChatAnswer answer) {
+        String key = normalizeForSearch(answer.getQuestionKey());
+        String question = normalizeForSearch(answer.getQuestionText());
+
+        return key.contains("disponib")
+            || key.contains("debut")
+            || question.contains("disponibilite")
+            || question.contains("disponible")
+            || question.contains("date de debut");
+    }
+
+    private boolean isRhythmAnswer(ChatAnswer answer) {
+        String key = normalizeForSearch(answer.getQuestionKey());
+        String question = normalizeForSearch(answer.getQuestionText());
+
+        return key.contains("rythme")
+            || key.contains("alternance")
+            || question.contains("rythme")
+            || question.contains("alternance");
+    }
+
+    private boolean isLocationAnswer(ChatAnswer answer) {
+        String key = normalizeForSearch(answer.getQuestionKey());
+        String question = normalizeForSearch(answer.getQuestionText());
+
+        return key.contains("local")
+            || key.contains("mobilit")
+            || question.contains("localisation")
+            || question.contains("ville")
+            || question.contains("mobilite");
+    }
+
+    private List<String> extractListedItems(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return List.of();
+        }
+
+        return TOKEN_SPLIT_PATTERN.splitAsStream(raw)
+            .map(String::trim)
+            .map(v -> v.replaceAll("^[\\-•*]+", "").trim())
+            .filter(v -> !v.isBlank())
+            .filter(v -> v.length() <= 40)
+            .collect(Collectors.toList());
+    }
+
     private String normalizeForSearch(String text) {
         if (text == null) {
             return "";
@@ -776,18 +669,6 @@ public class ChatAnswerService {
         return Normalizer.normalize(text, Normalizer.Form.NFD)
             .replaceAll("\\p{M}+", "")
             .toLowerCase();
-    }
-    
-    /**
-     * Extrait le nom d'un projet du texte
-     */
-    private String extractProjectName(String text) {
-        Pattern pattern = Pattern.compile("projet\\s+([A-Za-z0-9\\s]+)");
-        Matcher matcher = pattern.matcher(text.toLowerCase());
-        if (matcher.find()) {
-            return matcher.group(1).trim();
-        }
-        return "Projet mentionné";
     }
     
     /**
