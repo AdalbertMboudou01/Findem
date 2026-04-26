@@ -23,12 +23,14 @@ public class ChatbotQuestionService {
         return chatbotQuestionRepository.findByJobOrderByOrderIndexAsc(job);
     }
 
-    public ChatbotQuestion addQuestion(UUID jobId, String questionText, int orderIndex) {
+    public ChatbotQuestion addQuestion(UUID jobId, String questionText, int orderIndex, String answerType, boolean required) {
         Job job = jobRepository.findById(jobId).orElseThrow(() -> new RuntimeException("Job not found"));
         ChatbotQuestion question = new ChatbotQuestion();
         question.setJob(job);
         question.setQuestionText(questionText);
         question.setOrderIndex(orderIndex);
+        question.setAnswerType(answerType);
+        question.setRequired(required);
         return chatbotQuestionRepository.save(question);
     }
 
@@ -36,11 +38,13 @@ public class ChatbotQuestionService {
         chatbotQuestionRepository.deleteById(questionId);
     }
 
-    public Optional<ChatbotQuestion> updateQuestion(UUID questionId, String questionText, int orderIndex) {
+    public Optional<ChatbotQuestion> updateQuestion(UUID questionId, String questionText, int orderIndex, String answerType, boolean required) {
         Optional<ChatbotQuestion> opt = chatbotQuestionRepository.findById(questionId);
         opt.ifPresent(q -> {
             q.setQuestionText(questionText);
             q.setOrderIndex(orderIndex);
+            q.setAnswerType(answerType);
+            q.setRequired(required);
             chatbotQuestionRepository.save(q);
         });
         return opt;

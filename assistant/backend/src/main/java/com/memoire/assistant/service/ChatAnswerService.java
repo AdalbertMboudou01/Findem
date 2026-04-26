@@ -1,6 +1,7 @@
 package com.memoire.assistant.service;
 
 import com.memoire.assistant.dto.ChatAnswerAnalysisDTO;
+import com.memoire.assistant.dto.GithubAnalysisDTO;
 import com.memoire.assistant.model.Application;
 import com.memoire.assistant.model.ChatAnswer;
 import com.memoire.assistant.model.Job;
@@ -9,6 +10,7 @@ import com.memoire.assistant.repository.ApplicationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.text.Normalizer;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
@@ -22,17 +24,20 @@ public class ChatAnswerService {
     
     @Autowired
     private ApplicationRepository applicationRepository;
+
+    @Autowired
+    private GitHubAnalysisService gitHubAnalysisService;
     
     // Mots-clés pour l'analyse de motivation
     private static final Set<String> MOTIVATION_KEYWORDS_HIGH = Set.of(
-        "passionné", "passion", "passionnée", "motivé", "motivée", "enthousiaste",
-        "déterminé", "déterminée", "ambitieux", "ambitieuse", "curieux", "curieuse",
-        "apprentissage", "apprendre", "découvrir", "défis", "challenge", "innovant"
+        "passionne", "passion", "motive", "motivation", "enthousiaste",
+        "determine", "ambitieux", "curieux",
+        "apprentissage", "apprendre", "decouvrir", "defis", "challenge", "innovant"
     );
     
     private static final Set<String> MOTIVATION_KEYWORDS_MEDIUM = Set.of(
-        "intéressé", "intéressée", "attiré", "attirée", "opportunité", "expérience",
-        "développer", "compétences", "carrière", "professionnel", "professionnelle"
+        "interesse", "attire", "opportunite", "experience",
+        "developper", "competences", "carriere", "professionnel"
     );
     
     // Mots-clés techniques
@@ -74,6 +79,7 @@ public class ChatAnswerService {
         // Analyser chaque dimension
         analyzeMotivation(answers, analysis);
         analyzeTechnicalProfile(answers, analysis);
+        enrichWithGitHubAndPortfolio(application, analysis);
         analyzeAvailability(answers, analysis);
         analyzeLocation(answers, analysis, application.getJob());
         
@@ -83,8 +89,8 @@ public class ChatAnswerService {
         // Détecter les incohérences
         detectInconsistencies(answers, analysis);
         
-        // Recommander une action
-        recommendAction(analysis);
+        // Produire une lecture qualitative exploitable par le recruteur
+        buildQualitativeSummary(analysis);
         
         return analysis;
     }
@@ -93,13 +99,25 @@ public class ChatAnswerService {
      * Analyse de la motivation du candidat
      */
     private void analyzeMotivation(List<ChatAnswer> answers, ChatAnswerAnalysisDTO analysis) {
+        List<ChatAnswer> motivationAnswers = answers.stream()
+            .filter(this::isMotivationAnswer)
+            .collect(Collectors.toList());
+
+        if (motivationAnswers.isEmpty()) {
+            analysis.setMotivationLevel("LOW");
+            analysis.setHasSpecificMotivation(false);
+            analysis.setMotivationSummary("Motivation non fournie.");
+            analysis.setMotivationKeywords(Collections.emptyList());
+            return;
+        }
+
         List<String> motivationKeywords = new ArrayList<>();
         int highScore = 0;
         int mediumScore = 0;
         StringBuilder motivationText = new StringBuilder();
         
-        for (ChatAnswer answer : answers) {
-            String text = answer.getAnswerText().toLowerCase();
+        for (ChatAnswer answer : motivationAnswers) {
+            String text = normalizeForSearch(answer.getAnswerText());
             motivationText.append(answer.getAnswerText()).append(" ");
             
             // Compter les mots-clés
@@ -131,8 +149,86 @@ public class ChatAnswerService {
         analysis.setHasSpecificMotivation(highScore >= 2);
         
         // Générer un résumé
-        analysis.setMotivationSummary(generateMotivationSummary(motivationText.toString()));
+        analysis.setMotivationSummary(generateMotivationSummary(motivationText.toString().trim()));
         analysis.setMotivationKeywords(motivationKeywords.stream().distinct().collect(Collectors.toList()));
+    }
+
+    private void enrichWithGitHubAndPortfolio(Application application, ChatAnswerAnalysisDTO analysis) {
+        if (application == null || application.getCandidate() == null) {
+            return;
+        }
+
+        Set<String> mergedSkills = new LinkedHashSet<>(
+            analysis.getTechnicalSkills() == null ? Collections.emptyList() : analysis.getTechnicalSkills()
+        );
+        Set<String> mergedProjects = new LinkedHashSet<>(
+            analysis.getMentionedProjects() == null ? Collections.emptyList() : analysis.getMentionedProjects()
+        );
+
+        boolean hasExternalProfile = false;
+        List<String> githubSummaryParts = new ArrayList<>();
+
+        String githubUrl = application.getCandidate().getGithubUrl();
+        if (githubUrl != null && !githubUrl.trim().isEmpty()) {
+            hasExternalProfile = true;
+            GithubAnalysisDTO githubAnalysis = gitHubAnalysisService.analyzeGitHubProfile(githubUrl);
+            if (Boolean.TRUE.equals(githubAnalysis.getSuccess())) {
+                if (githubAnalysis.getLanguages() != null) {
+                    mergedSkills.addAll(githubAnalysis.getLanguages());
+                }
+                if (githubAnalysis.getTechnologies() != null) {
+                    mergedSkills.addAll(githubAnalysis.getTechnologies());
+                }
+                if (githubAnalysis.getProjectHighlights() != null && !githubAnalysis.getProjectHighlights().isEmpty()) {
+                    githubAnalysis.getProjectHighlights().stream()
+                        .limit(3)
+                        .forEach(highlight -> mergedProjects.add("GitHub: " + highlight));
+                    analysis.setHasProjectDetails(true);
+                }
+                if (githubAnalysis.getPublicRepositories() != null && githubAnalysis.getPublicRepositories() > 0) {
+                    analysis.setHasProjectDetails(true);
+                }
+
+                String githubPart = "GitHub: " +
+                    (githubAnalysis.getPublicRepositories() == null ? 0 : githubAnalysis.getPublicRepositories()) +
+                    " depots publics";
+                if (githubAnalysis.getTotalStars() != null) {
+                    githubPart += ", " + githubAnalysis.getTotalStars() + " etoiles";
+                }
+                if (githubAnalysis.getActivityScore() != null) {
+                    githubPart += ", activite " + githubAnalysis.getActivityScore() + "/100";
+                }
+                githubSummaryParts.add(githubPart);
+            } else {
+                githubSummaryParts.add("GitHub: analyse indisponible");
+            }
+        }
+
+        String portfolioUrl = application.getCandidate().getPortfolioUrl();
+        if (portfolioUrl != null && !portfolioUrl.trim().isEmpty()) {
+            hasExternalProfile = true;
+            GithubAnalysisDTO portfolioAnalysis = gitHubAnalysisService.analyzePortfolio(portfolioUrl);
+            if (Boolean.TRUE.equals(portfolioAnalysis.getSuccess())) {
+                githubSummaryParts.add("Portfolio: accessible");
+                analysis.setHasProjectDetails(true);
+            } else {
+                githubSummaryParts.add("Portfolio: non accessible");
+            }
+        }
+
+        if (hasExternalProfile) {
+            analysis.setHasGitHubOrPortfolio(true);
+        }
+
+        if (!mergedSkills.isEmpty()) {
+            analysis.setTechnicalSkills(new ArrayList<>(mergedSkills));
+        }
+        if (!mergedProjects.isEmpty()) {
+            analysis.setMentionedProjects(new ArrayList<>(mergedProjects));
+        }
+        if (!githubSummaryParts.isEmpty()) {
+            analysis.setGithubSummary(String.join(" | ", githubSummaryParts));
+        }
     }
     
     /**
@@ -345,29 +441,177 @@ public class ChatAnswerService {
         analysis.setInconsistencies(inconsistencies);
     }
     
-    /**
-     * Recommande une action basée sur l'analyse
-     */
-    private void recommendAction(ChatAnswerAnalysisDTO analysis) {
-        double score = analysis.getCompletenessScore();
-        
-        if (score >= 0.8 && analysis.getInconsistencies().isEmpty()) {
-            analysis.setRecommendedAction("PRIORITY");
-        } else if (score >= 0.5) {
-            analysis.setRecommendedAction("REVIEW");
+    private void buildQualitativeSummary(ChatAnswerAnalysisDTO analysis) {
+        List<String> strengths = new ArrayList<>();
+        List<String> pointsToConfirm = new ArrayList<>();
+
+        if ("HIGH".equals(analysis.getMotivationLevel())) {
+            analysis.setMotivationAssessment("Motivation claire, exprimée avec engagement et reliée au poste.");
+            strengths.add("La motivation est formulée de manière claire et engagée.");
+        } else if ("MEDIUM".equals(analysis.getMotivationLevel())) {
+            analysis.setMotivationAssessment("Motivation présente mais encore partiellement générique.");
+            pointsToConfirm.add("Préciser ce qui motive spécifiquement le candidat pour ce poste ou cette entreprise.");
         } else {
-            analysis.setRecommendedAction("REJECT");
+            analysis.setMotivationAssessment("La motivation reste absente, trop courte ou insuffisamment exploitable.");
+            pointsToConfirm.add("Revenir avec le candidat sur les raisons concrètes de sa candidature.");
         }
+
+        if (analysis.isHasProjectDetails()) {
+            analysis.setProjectAssessment("Au moins un projet ou une réalisation est identifiable dans les réponses ou les preuves externes.");
+            strengths.add("Des projets ou réalisations concrètes sont mentionnés.");
+        } else {
+            analysis.setProjectAssessment("Aucun projet suffisamment détaillé n'a été identifié pour apprécier le niveau réel d'exécution.");
+            pointsToConfirm.add("Demander un exemple de projet avec rôle, stack et résultat obtenu.");
+        }
+
+        if (analysis.getGithubSummary() != null && !analysis.getGithubSummary().isBlank()) {
+            analysis.setGithubAssessment("Des éléments externes sont exploitables via GitHub ou le portfolio.");
+            strengths.add("Le candidat fournit des preuves externes consultables (GitHub et/ou portfolio).");
+        } else if (analysis.isHasGitHubOrPortfolio()) {
+            analysis.setGithubAssessment("Un lien externe est fourni mais l'analyse reste partielle ou peu exploitable.");
+            pointsToConfirm.add("Vérifier manuellement la qualité du GitHub ou du portfolio fourni.");
+        } else {
+            analysis.setGithubAssessment("Aucun GitHub ni portfolio exploitable n'est disponible dans cette candidature.");
+            pointsToConfirm.add("Aucune preuve externe n'est disponible pour confirmer les projets mentionnés.");
+        }
+
+        if (analysis.isHasClearAvailability()) {
+            analysis.setAvailabilityAssessment(describeAvailability(analysis));
+            strengths.add("La disponibilité ou le rythme d'alternance est précisé.");
+        } else {
+            analysis.setAvailabilityAssessment("La disponibilité ou le rythme d'alternance n'est pas clairement précisé.");
+            pointsToConfirm.add("Confirmer la date de disponibilité et le rythme d'alternance attendu.");
+        }
+
+        analysis.setLocationAssessment(describeLocation(analysis));
+        if ("PERFECT".equals(analysis.getLocationMatch()) || "REMOTE_COMPATIBLE".equals(analysis.getLocationMatch())) {
+            strengths.add("La localisation ne présente pas de blocage évident à ce stade.");
+        } else {
+            pointsToConfirm.add("Valider la mobilité ou la compatibilité géographique avec le poste.");
+        }
+
+        if (analysis.getTechnicalSkills() != null && !analysis.getTechnicalSkills().isEmpty()) {
+            strengths.add("Des technologies ou environnements techniques sont explicitement mentionnés.");
+        } else {
+            pointsToConfirm.add("Le niveau technique reste à confirmer avec des exemples plus précis.");
+        }
+
+        if (analysis.getInconsistencies() != null && !analysis.getInconsistencies().isEmpty()) {
+            pointsToConfirm.addAll(analysis.getInconsistencies());
+        }
+
+        analysis.setStrengths(strengths.stream().distinct().collect(Collectors.toList()));
+        analysis.setPointsToConfirm(pointsToConfirm.stream().distinct().collect(Collectors.toList()));
+        analysis.setRecommendedAction(resolveQualitativeAction(analysis));
+        analysis.setRecruiterGuidance(buildRecruiterGuidance(analysis));
+    }
+
+    private String resolveQualitativeAction(ChatAnswerAnalysisDTO analysis) {
+        boolean richProfile = "HIGH".equals(analysis.getMotivationLevel())
+            && analysis.isHasProjectDetails()
+            && analysis.getTechnicalSkills() != null
+            && !analysis.getTechnicalSkills().isEmpty()
+            && analysis.getInconsistencies().isEmpty();
+
+        boolean incompleteProfile = (analysis.getMissingInformation() != null && analysis.getMissingInformation().size() >= 3)
+            || (analysis.getPointsToConfirm() != null && analysis.getPointsToConfirm().size() >= 4);
+
+        if (richProfile) {
+            return "PRIORITY";
+        }
+        if (incompleteProfile) {
+            return "REVIEW";
+        }
+        return "REVIEW";
+    }
+
+    private String buildRecruiterGuidance(ChatAnswerAnalysisDTO analysis) {
+        boolean richProfile = "HIGH".equals(analysis.getMotivationLevel())
+            && analysis.isHasProjectDetails()
+            && analysis.getTechnicalSkills() != null
+            && !analysis.getTechnicalSkills().isEmpty()
+            && analysis.getInconsistencies().isEmpty();
+
+        boolean incompleteProfile = (analysis.getMissingInformation() != null && analysis.getMissingInformation().size() >= 3)
+            || (analysis.getPointsToConfirm() != null && analysis.getPointsToConfirm().size() >= 4);
+
+        if (richProfile) {
+            return "Profil documenté avec des éléments concrets. Une lecture prioritaire est pertinente avant validation humaine.";
+        }
+        if (incompleteProfile) {
+            return "La candidature contient des éléments utiles, mais plusieurs informations clés restent à confirmer avant toute décision.";
+        }
+        return "La candidature est exploitable, mais mérite une lecture manuelle ciblée pour confirmer les points encore ambigus.";
+    }
+
+    private String describeAvailability(ChatAnswerAnalysisDTO analysis) {
+        String availability = analysis.getAvailabilityStatus();
+        String rhythm = analysis.getAlternanceRhythm();
+
+        String availabilityLabel;
+        if ("IMMEDIATE".equals(availability)) {
+            availabilityLabel = "La disponibilité est annoncée comme immédiate";
+        } else if ("FUTURE".equals(availability)) {
+            availabilityLabel = "Une disponibilité future est mentionnée";
+        } else {
+            availabilityLabel = "Une disponibilité est mentionnée";
+        }
+
+        String rhythmLabel;
+        if ("FULL_TIME".equals(rhythm)) {
+            rhythmLabel = "avec un rythme d'alternance clairement précisé";
+        } else if ("PART_TIME".equals(rhythm)) {
+            rhythmLabel = "avec un rythme partiel à confirmer";
+        } else {
+            rhythmLabel = "avec un rythme encore flexible";
+        }
+
+        return availabilityLabel + " " + rhythmLabel + ".";
+    }
+
+    private String describeLocation(ChatAnswerAnalysisDTO analysis) {
+        if ("PERFECT".equals(analysis.getLocationMatch())) {
+            return "La localisation semble compatible avec le poste.";
+        }
+        if ("REMOTE_COMPATIBLE".equals(analysis.getLocationMatch())) {
+            return "La localisation peut rester compatible sous réserve de mobilité ou de télétravail.";
+        }
+        return "La compatibilité géographique n'est pas démontrée à ce stade.";
     }
     
     /**
      * Génère un résumé de motivation
      */
     private String generateMotivationSummary(String fullText) {
+        if (fullText == null || fullText.trim().isEmpty()) {
+            return "Motivation non fournie.";
+        }
         if (fullText.length() > 200) {
             return fullText.substring(0, 200) + "...";
         }
         return fullText;
+    }
+
+    private boolean isMotivationAnswer(ChatAnswer answer) {
+        String key = normalizeForSearch(answer.getQuestionKey());
+        String question = normalizeForSearch(answer.getQuestionText());
+
+        return key.contains("motivation")
+            || key.contains("motive")
+            || question.contains("motivation")
+            || question.contains("motive")
+            || question.contains("pourquoi")
+            || question.contains("interet")
+            || question.contains("envie");
+    }
+
+    private String normalizeForSearch(String text) {
+        if (text == null) {
+            return "";
+        }
+        return Normalizer.normalize(text, Normalizer.Form.NFD)
+            .replaceAll("\\p{M}+", "")
+            .toLowerCase();
     }
     
     /**

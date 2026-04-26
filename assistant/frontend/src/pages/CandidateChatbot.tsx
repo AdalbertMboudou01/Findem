@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Bot, CheckCircle2, Send, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Bot, CheckCircle2, Send, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import { getJson, postForm, postJson } from '../lib/api';
 import { loadChatbotQuestions } from '../lib/domainApi';
 import type { ChatbotQuestion } from '../types';
 
 type ApplyResponse = { candidateId: string; applicationId: string };
-type PublicJobSummary = { jobId: string; title: string };
+type PublicJobSummary = { jobId: string; title: string; isAccepting: boolean; candidateCount: number; maxCandidatures: number | null };
 
 type ChatAnswerPayload = {
   questionKey: string;
@@ -31,6 +31,8 @@ export default function CandidateChatbot() {
   const { jobId = '' } = useParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [offerClosed, setOfferClosed] = useState(false);
+  const [offerClosedReason, setOfferClosedReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [questions, setQuestions] = useState<ChatbotQuestion[]>([]);
@@ -62,6 +64,21 @@ export default function CandidateChatbot() {
       try {
         const summary = await getJson<PublicJobSummary>(`/api/jobs/${jobId}/public`);
         setJobTitle(summary.title || 'Offre');
+
+        // Vérification du quota avant d'aller plus loin
+        if (!summary.isAccepting) {
+          if (summary.maxCandidatures != null) {
+            setOfferClosedReason(
+              `Cette offre a atteint son quota de ${summary.maxCandidatures} candidature${summary.maxCandidatures > 1 ? 's' : ''}.`,
+            );
+          } else {
+            setOfferClosedReason('Cette offre est clôturée et n\'accepte plus de candidatures.');
+          }
+          setOfferClosed(true);
+          setLoading(false);
+          return;
+        }
+
         const loaded = await loadChatbotQuestions(jobId);
         setQuestions(loaded);
         if (!loaded.length) {
@@ -192,8 +209,40 @@ export default function CandidateChatbot() {
           <h1 className="text-subtitle2 font-semibold">Candidature - {jobTitle || 'Offre'}</h1>
         </div>
 
+        {/* Chargement */}
+        {loading && (
+          <div className="rounded-fluent-lg border border-t-stroke3 bg-t-bg1 p-8 text-center">
+            <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-t-brand-80 border-t-transparent" />
+            <p className="text-caption1 text-t-fg3">Chargement de l'offre…</p>
+          </div>
+        )}
+
+        {/* Offre fermée (quota atteint ou clôturée) */}
+        {!loading && offerClosed && (
+          <div className="rounded-fluent-lg border border-t-stroke3 bg-t-bg1 p-8 text-center space-y-4">
+            <div className="mx-auto w-14 h-14 rounded-full bg-t-warning-bg flex items-center justify-center">
+              <Lock className="w-7 h-7 text-t-warning" strokeWidth={1.5} />
+            </div>
+            <div>
+              <h2 className="text-body1 font-semibold text-t-fg1 mb-2">Offre non disponible</h2>
+              <p className="text-caption1 text-t-fg2">{offerClosedReason}</p>
+            </div>
+            <p className="text-caption2 text-t-fg3">
+              Nous vous remercions de l'intérêt que vous portez à cette offre.
+            </p>
+          </div>
+        )}
+
+        {/* Erreur de chargement */}
+        {/* Erreur de chargement (sans formulaire visible) */}
+        {!loading && !offerClosed && error && !candidateId && step === 'identity' && questions.length === 0 && (
+          <div className="rounded-fluent border border-t-danger bg-t-danger-bg px-4 py-3 text-caption1 text-t-danger">
+            {error}
+          </div>
+        )}
+
         {/* Étape 0 : formulaire d'identification */}
-        {step === 'identity' && (
+        {!loading && !offerClosed && step === 'identity' && (
           <form
             onSubmit={handleIdentitySubmit}
             className="space-y-4 rounded-fluent-lg border border-t-stroke3 bg-t-bg1 p-5"
@@ -310,19 +359,10 @@ export default function CandidateChatbot() {
               </span>
             </label>
 
-            {loading && (
-              <p className="text-caption1 text-t-fg3">Chargement des questions...</p>
-            )}
-            {error && !loading && (
-              <div className="rounded-fluent border border-t-danger bg-t-danger-bg px-4 py-2 text-caption1 text-t-danger">
-                {error}
-              </div>
-            )}
-
             <div className="flex justify-end">
               <button
                 type="submit"
-                disabled={identitySubmitting || loading || !!error}
+                disabled={identitySubmitting}
                 className="inline-flex h-9 items-center gap-2 rounded-fluent bg-t-bg-brand px-4 text-caption1 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {identitySubmitting ? 'Enregistrement...' : 'Commencer le questionnaire'}

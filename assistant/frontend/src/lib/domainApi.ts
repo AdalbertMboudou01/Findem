@@ -1,4 +1,4 @@
-import { deleteJson, getJson, postJson, putJson } from './api';
+import { deleteJson, getJson, postJson, putJson, patchJson } from './api';
 import type { Candidate, CandidateStatus, ChatbotQuestion, Offer, OfferStatus, TriCategory } from '../types';
 
 type BackendCandidate = {
@@ -44,6 +44,31 @@ type BackendApplication = {
   createdAt?: string | null;
 };
 
+type BackendChatAnswerSummary = {
+  applicationId?: string;
+  motivationLevel?: string;
+  technicalLevel?: string;
+  hasProjectDetails?: boolean;
+  hasClearAvailability?: boolean;
+  locationMatch?: string;
+  completenessScore?: number;
+  recommendedAction?: string;
+  motivationSummary?: string;
+  motivationAssessment?: string;
+  projectAssessment?: string;
+  githubSummary?: string;
+  githubAssessment?: string;
+  availabilityAssessment?: string;
+  locationAssessment?: string;
+  mentionedProjects?: string[];
+  technicalSkills?: string[];
+  strengths?: string[];
+  missingInformation?: string[];
+  inconsistencies?: string[];
+  pointsToConfirm?: string[];
+  recruiterGuidance?: string;
+};
+
 type BackendApplicationStatus = {
   statusId: string;
   code?: string;
@@ -86,6 +111,8 @@ type BackendChatbotQuestion = {
   id?: string;
   questionText?: string;
   orderIndex?: number;
+  answerType?: ChatbotQuestion['type'];
+  required?: boolean;
 };
 
 export type OfferDraftInput = {
@@ -119,6 +146,16 @@ function mapTriCategory(status: CandidateStatus): TriCategory {
   if (status === 'a_revoir_manuellement' || status === 'vivier') return 'a_revoir';
   if (status === 'non_retenu') return 'a_ecarter';
   return 'a_examiner';
+}
+
+function mapRecommendedActionLabel(action?: string, guidance?: string): string {
+  if (guidance && guidance.trim().length > 0) return guidance;
+
+  const value = (action || '').toUpperCase();
+  if (value === 'PRIORITY' || value === 'INTERVIEW') return 'Lecture prioritaire recommandee avant validation humaine.';
+  if (value === 'REVIEW') return 'Lecture manuelle recommandee pour confirmer les points encore ambigus.';
+  if (value === 'REJECT') return 'Des clarifications sont necessaires avant de pouvoir conclure sur cette candidature.';
+  return 'Lecture complementaire recommandee.';
 }
 
 function toSlug(title: string) {
@@ -334,10 +371,44 @@ export async function loadRecruitmentData(): Promise<{ offers: Offer[]; candidat
     }
   }
 
+  const analysisByApplicationId = new Map<string, BackendChatAnswerSummary>();
+  const analysisRequests = Array.from(candidateToApplication.values())
+    .map((app) => app.applicationId)
+    .filter((appId): appId is string => Boolean(appId));
+
+  await Promise.all(
+    analysisRequests.map(async (appId) => {
+      try {
+        const summary = await getJson<BackendChatAnswerSummary>(`/api/chat-answers/summary/${appId}`);
+        analysisByApplicationId.set(appId, summary);
+      } catch {
+        // Certaines candidatures n'ont pas encore de réponses exploitables.
+      }
+    }),
+  );
+
   const candidates: Candidate[] = (backendCandidates || []).map((item) => {
     const app = candidateToApplication.get(item.candidateId);
     const status = mapCandidateStatus(app?.status?.code || app?.status?.label, item.inPool);
+    const analysis = app?.applicationId ? analysisByApplicationId.get(app.applicationId) : null;
     const tri = mapTriCategory(status);
+
+    const motivationSummary = analysis?.motivationSummary?.trim()
+      || (item.school ? `Formation: ${item.school}` : 'Resume non disponible.');
+    const motivationAssessment = analysis?.motivationAssessment?.trim() || '';
+    const mentionedProjects = analysis?.mentionedProjects || [];
+    const projectAssessment = analysis?.projectAssessment?.trim() || '';
+    const githubSummary = analysis?.githubSummary?.trim() || '';
+    const githubAssessment = analysis?.githubAssessment?.trim() || '';
+    const technicalSkills = analysis?.technicalSkills || [];
+    const strengths = analysis?.strengths || [];
+    const missingInfo = analysis?.missingInformation || [];
+    const inconsistencies = analysis?.inconsistencies || [];
+    const pointsToConfirm = analysis?.pointsToConfirm || [];
+    const projectSummaryParts = [
+      ...(mentionedProjects.length > 0 ? [mentionedProjects.join(', ')] : []),
+      ...(githubSummary ? [githubSummary] : []),
+    ];
 
     return {
       id: item.candidateId,
@@ -353,17 +424,22 @@ export async function loadRecruitmentData(): Promise<{ offers: Offer[]; candidat
       tri_category: tri,
       status,
       alternance_compatible: true,
-      disponibilite: 'A definir',
-      rythme_alternance: 'A definir',
-      motivation_summary: item.school ? `Formation: ${item.school}` : 'Resume non disponible.',
-      projet_cite: item.location ? `Localisation: ${item.location}` : '',
-      technologies: [],
+      disponibilite: analysis?.availabilityAssessment?.trim() || (analysis?.hasClearAvailability ? 'Definie' : 'A definir'),
+      rythme_alternance: analysis?.hasClearAvailability ? 'Precise' : 'A definir',
+      motivation_summary: motivationSummary,
+      motivation_assessment: motivationAssessment,
+      projet_cite: projectSummaryParts.length > 0 ? projectSummaryParts.join(' | ') : (item.location ? `Localisation: ${item.location}` : ''),
+      projet_assessment: projectAssessment,
+      technologies: technicalSkills,
       github_url: item.githubUrl ?? null,
       portfolio_url: item.portfolioUrl ?? null,
-      points_attention: [],
-      action_recommandee: status === 'retenu_entretien' ? 'Entretien recommande' : 'Analyse complementaire recommandee',
+      github_assessment: githubAssessment,
+      location_assessment: analysis?.locationAssessment?.trim() || '',
+      points_forts: strengths,
+      points_attention: Array.from(new Set([...missingInfo, ...inconsistencies, ...pointsToConfirm])),
+      action_recommandee: mapRecommendedActionLabel(analysis?.recommendedAction, analysis?.recruiterGuidance),
       chatbot_responses: null,
-      chatbot_completed: false,
+      chatbot_completed: Boolean(analysis),
       offer_id: app?.job?.jobId || null,
       user_id: null,
       created_at: item.createdAt || new Date().toISOString(),
@@ -408,8 +484,8 @@ export async function loadChatbotQuestions(jobId: string): Promise<ChatbotQuesti
       .map((q, idx) => ({
         id: q.id || `q-${idx + 1}`,
         text: q.questionText || '',
-        type: 'open',
-        required: true,
+        type: q.answerType || 'open',
+        required: q.required ?? true,
         order: q.orderIndex || idx + 1,
       }));
   } catch {
@@ -443,6 +519,8 @@ export async function saveChatbotQuestions(jobId: string, questions: ChatbotQues
     const payload = {
       questionText: question.text,
       orderIndex: question.order,
+      answerType: question.type,
+      required: question.required,
     };
 
     if (question.id && isUuid(question.id) && existingIds.has(question.id)) {
@@ -453,4 +531,25 @@ export async function saveChatbotQuestions(jobId: string, questions: ChatbotQues
   }
 
   return loadChatbotQuestions(jobId);
+}
+
+// ─── Quota / paramètres offre ──────────────────────────────────────────────
+
+export type JobQuotaSettings = {
+  maxCandidatures: number | null;
+  autoClose: boolean;
+};
+
+export async function loadJobQuotaSettings(offerId: string): Promise<JobQuotaSettings> {
+  const res = await getJson<{ maxCandidatures: number | null; autoClose: boolean }>(
+    `/api/jobs/${offerId}/settings`,
+  );
+  return { maxCandidatures: res.maxCandidatures ?? null, autoClose: res.autoClose ?? true };
+}
+
+export async function saveJobQuotaSettings(offerId: string, settings: JobQuotaSettings): Promise<void> {
+  await patchJson(`/api/jobs/${offerId}/settings`, {
+    maxCandidatures: settings.maxCandidatures,
+    autoClose: settings.autoClose,
+  });
 }

@@ -9,6 +9,19 @@ export type CandidateStatus =
 
 export type OfferStatus = 'ouvert' | 'pause' | 'cloture';
 
+export type OfferExigence = 'standard' | 'selectif' | 'tres_selectif' | 'excellence';
+
+export interface OfferSettings {
+  offer_id: string;
+  max_candidatures: number | null;
+  auto_close: boolean;
+  exigence: OfferExigence;
+  stack_attendue: string[];
+  importance_github: 'faible' | 'normale' | 'forte';
+  types_projets_valorises: string;
+  top_n_visible: number;
+}
+
 export interface Offer {
   id: string;
   title: string;
@@ -43,10 +56,15 @@ export interface Candidate {
   disponibilite: string;
   rythme_alternance: string;
   motivation_summary: string;
+  motivation_assessment: string;
   projet_cite: string;
+  projet_assessment: string;
   technologies: string[];
   github_url: string | null;
   portfolio_url: string | null;
+  github_assessment: string;
+  location_assessment: string;
+  points_forts: string[];
   points_attention: string[];
   action_recommandee: string;
   chatbot_responses: ChatbotResponse[] | null;

@@ -14,6 +14,9 @@ import CandidateDetail, { CandidateEmpty } from './pages/CandidateDetail';
 import Chatbot from './pages/Chatbot';
 import Entreprise from './pages/Entreprise';
 import CandidateChatbot from './pages/CandidateChatbot';
+import OfferSettings from './pages/OfferSettings';
+import OfferPriority from './pages/OfferPriority';
+import Vivier from './pages/Vivier';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -51,6 +54,9 @@ function AppRoutes() {
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/offers" element={<Offers />} />
+        <Route path="/offers/:offerId/settings" element={<OfferSettings />} />
+        <Route path="/offers/:offerId/priority" element={<OfferPriority />} />
+        <Route path="/vivier" element={<Vivier />} />
         <Route path="/candidates" element={<Candidates />}>
           <Route index element={<CandidateEmpty />} />
           <Route path=":id" element={<CandidateDetail />} />

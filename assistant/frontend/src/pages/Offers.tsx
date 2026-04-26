@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Plus,
   X,
@@ -19,6 +20,8 @@ import {
   BarChart3,
   Briefcase,
   Link as LinkIcon,
+  SlidersHorizontal,
+  ListFilter,
 } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import { OfferStatusBadge, TriBadge } from '../components/ui/Badge';
@@ -389,6 +392,18 @@ export default function Offers() {
                     >
                       <BarChart3 className="w-3 h-3" />Modifier
                     </button>
+                    <Link
+                      to={`/offers/${o.id}/priority`}
+                      className="h-7 px-2.5 text-caption1 font-medium text-t-fg2 hover:bg-t-bg1-hover rounded-fluent inline-flex items-center gap-1 transition-colors"
+                    >
+                      <ListFilter className="w-3 h-3" />Prioriser
+                    </Link>
+                    <Link
+                      to={`/offers/${o.id}/settings`}
+                      className="h-7 px-2.5 text-caption1 font-medium text-t-fg2 hover:bg-t-bg1-hover rounded-fluent inline-flex items-center gap-1 transition-colors"
+                    >
+                      <SlidersHorizontal className="w-3 h-3" />Paramètres
+                    </Link>
                     <button
                       onClick={() => copyUrl(o.id)}
                       className="h-7 px-2.5 text-caption1 font-medium text-t-fg2 hover:bg-t-bg1-hover rounded-fluent inline-flex items-center gap-1 transition-colors"

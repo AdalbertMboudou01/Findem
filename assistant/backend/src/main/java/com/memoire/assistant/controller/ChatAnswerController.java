@@ -125,10 +125,19 @@ public class ChatAnswerController {
                     Map.entry("completenessScore", analysis.getCompletenessScore()),
                     Map.entry("recommendedAction", analysis.getRecommendedAction()),
                     Map.entry("motivationSummary", analysis.getMotivationSummary()),
+                    Map.entry("motivationAssessment", analysis.getMotivationAssessment() == null ? "" : analysis.getMotivationAssessment()),
+                    Map.entry("projectAssessment", analysis.getProjectAssessment() == null ? "" : analysis.getProjectAssessment()),
+                    Map.entry("githubSummary", analysis.getGithubSummary() == null ? "" : analysis.getGithubSummary()),
+                    Map.entry("githubAssessment", analysis.getGithubAssessment() == null ? "" : analysis.getGithubAssessment()),
+                    Map.entry("availabilityAssessment", analysis.getAvailabilityAssessment() == null ? "" : analysis.getAvailabilityAssessment()),
+                    Map.entry("locationAssessment", analysis.getLocationAssessment() == null ? "" : analysis.getLocationAssessment()),
                     Map.entry("mentionedProjects", analysis.getMentionedProjects()),
                     Map.entry("technicalSkills", analysis.getTechnicalSkills()),
+                    Map.entry("strengths", analysis.getStrengths() == null ? List.of() : analysis.getStrengths()),
                     Map.entry("missingInformation", analysis.getMissingInformation()),
-                    Map.entry("inconsistencies", analysis.getInconsistencies())
+                    Map.entry("inconsistencies", analysis.getInconsistencies()),
+                    Map.entry("pointsToConfirm", analysis.getPointsToConfirm() == null ? List.of() : analysis.getPointsToConfirm()),
+                    Map.entry("recruiterGuidance", analysis.getRecruiterGuidance() == null ? "" : analysis.getRecruiterGuidance())
                 )
             );
         } catch (Exception e) {

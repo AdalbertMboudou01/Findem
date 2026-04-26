@@ -65,7 +65,13 @@ public class Job {
     
     @Column(name = "statut", columnDefinition = "TEXT")
     private String statut; // ouvert/pause/clôturé
-    
+
+    @Column(name = "max_candidatures")
+    private Integer maxCandidatures;
+
+    @Column(name = "auto_close", nullable = false)
+    private boolean autoClose = true;
+
     private Date createdAt;
 
     // Getters & Setters
@@ -188,5 +194,21 @@ public class Job {
     
     public void setStatut(String statut) {
         this.statut = statut;
+    }
+
+    public Integer getMaxCandidatures() {
+        return maxCandidatures;
+    }
+
+    public void setMaxCandidatures(Integer maxCandidatures) {
+        this.maxCandidatures = maxCandidatures;
+    }
+
+    public boolean isAutoClose() {
+        return autoClose;
+    }
+
+    public void setAutoClose(boolean autoClose) {
+        this.autoClose = autoClose;
     }
 }

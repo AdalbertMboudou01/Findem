@@ -293,17 +293,26 @@ export default function CandidateDetail() {
         {activeTab === 'synthese' && (
           <div className="max-w-[800px] space-y-3">
             <Section icon={MessageSquare} title="Motivation">
+              {c.motivation_assessment && (
+                <p className="text-caption1 text-t-fg2 mb-2">{c.motivation_assessment}</p>
+              )}
               <p className="text-body1 text-t-fg1 leading-relaxed">{c.motivation_summary}</p>
             </Section>
 
             {c.projet_cite && (
               <Section icon={FileText} title="Projet / Experience">
+                {c.projet_assessment && (
+                  <p className="text-caption1 text-t-fg2 mb-2">{c.projet_assessment}</p>
+                )}
                 <p className="text-body1 text-t-fg1 leading-relaxed">{c.projet_cite}</p>
               </Section>
             )}
 
             {c.technologies.length > 0 && (
               <Section icon={Code2} title="Signaux techniques">
+                {c.github_assessment && (
+                  <p className="text-caption1 text-t-fg2 mb-3">{c.github_assessment}</p>
+                )}
                 <div className="flex flex-wrap gap-1.5">
                   {c.technologies.map((t) => (
                     <span key={t} className="px-2 py-0.5 text-caption1 bg-t-bg3 text-t-fg2 rounded-fluent">{t}</span>
@@ -326,6 +335,21 @@ export default function CandidateDetail() {
               </Section>
             )}
 
+            {c.points_forts.length > 0 && (
+              <div className="bg-t-success-bg border border-t-stroke2 rounded-fluent px-5 py-4">
+                <h3 className="inline-flex items-center gap-2 text-caption1 font-semibold text-t-success uppercase tracking-wider mb-2">
+                  <CheckCircle2 className="w-3.5 h-3.5" />Points forts observes
+                </h3>
+                <ul className="space-y-1">
+                  {c.points_forts.map((p, i) => (
+                    <li key={i} className="text-body1 text-t-fg1 flex items-start gap-2">
+                      <span className="w-1 h-1 rounded-full bg-t-success mt-2 shrink-0" />{p}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {c.points_attention.length > 0 && (
               <div className="bg-t-warning-bg border border-t-stroke2 rounded-fluent px-5 py-4">
                 <h3 className="inline-flex items-center gap-2 text-caption1 font-semibold text-t-warning uppercase tracking-wider mb-2">
@@ -343,7 +367,7 @@ export default function CandidateDetail() {
 
             <div className="bg-t-brand-160 border border-t-brand-140 rounded-fluent px-5 py-4">
               <h3 className="inline-flex items-center gap-2 text-caption1 font-semibold text-t-brand-80 uppercase tracking-wider mb-2">
-                <CheckCircle2 className="w-3.5 h-3.5" />Action recommandee
+                <CheckCircle2 className="w-3.5 h-3.5" />Lecture recruteur
               </h3>
               <p className="text-body1 text-t-brand-70">{c.action_recommandee}</p>
             </div>
@@ -355,6 +379,9 @@ export default function CandidateDetail() {
                 <MetaItem label="Chatbot" value={c.chatbot_completed ? 'Termine' : 'Incomplet'} />
                 <MetaItem label="Candidature" value={formatDate(c.created_at)} />
               </div>
+              {c.location_assessment && (
+                <p className="text-caption1 text-t-fg3 mt-4">{c.location_assessment}</p>
+              )}
             </div>
           </div>
         )}

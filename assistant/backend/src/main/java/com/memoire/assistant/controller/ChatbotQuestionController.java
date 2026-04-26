@@ -23,12 +23,24 @@ public class ChatbotQuestionController {
 
     @PostMapping
     public ChatbotQuestion addQuestion(@PathVariable UUID jobId, @RequestBody ChatbotQuestion question) {
-        return chatbotQuestionService.addQuestion(jobId, question.getQuestionText(), question.getOrderIndex());
+        return chatbotQuestionService.addQuestion(
+                jobId,
+                question.getQuestionText(),
+                question.getOrderIndex(),
+                question.getAnswerType() != null ? question.getAnswerType() : "open",
+                question.isRequired()
+        );
     }
 
     @PutMapping("/{questionId}")
     public ResponseEntity<ChatbotQuestion> updateQuestion(@PathVariable UUID jobId, @PathVariable UUID questionId, @RequestBody ChatbotQuestion question) {
-        Optional<ChatbotQuestion> updated = chatbotQuestionService.updateQuestion(questionId, question.getQuestionText(), question.getOrderIndex());
+        Optional<ChatbotQuestion> updated = chatbotQuestionService.updateQuestion(
+                questionId,
+                question.getQuestionText(),
+                question.getOrderIndex(),
+                question.getAnswerType() != null ? question.getAnswerType() : "open",
+                question.isRequired()
+        );
         return updated.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }
 

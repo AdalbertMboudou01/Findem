@@ -41,11 +41,15 @@ class ChatbotQuestionServiceTest {
         q.setJob(job);
         q.setQuestionText("Votre motivation ?");
         q.setOrderIndex(1);
+        q.setAnswerType("open");
+        q.setRequired(true);
         when(chatbotQuestionRepository.save(any())).thenReturn(q);
         when(chatbotQuestionRepository.findByJobOrderByOrderIndexAsc(job)).thenReturn(List.of(q));
 
-        ChatbotQuestion created = chatbotQuestionService.addQuestion(jobId, "Votre motivation ?", 1);
+        ChatbotQuestion created = chatbotQuestionService.addQuestion(jobId, "Votre motivation ?", 1, "open", true);
         assertEquals("Votre motivation ?", created.getQuestionText());
+        assertEquals("open", created.getAnswerType());
+        assertTrue(created.isRequired());
         List<ChatbotQuestion> questions = chatbotQuestionService.getQuestionsForJob(jobId);
         assertEquals(1, questions.size());
         assertEquals("Votre motivation ?", questions.get(0).getQuestionText());
@@ -58,13 +62,17 @@ class ChatbotQuestionServiceTest {
         q.setId(qId);
         q.setQuestionText("Ancienne question");
         q.setOrderIndex(1);
+        q.setAnswerType("open");
+        q.setRequired(true);
         when(chatbotQuestionRepository.findById(qId)).thenReturn(Optional.of(q));
         when(chatbotQuestionRepository.save(any())).thenReturn(q);
 
-        Optional<ChatbotQuestion> updated = chatbotQuestionService.updateQuestion(qId, "Nouvelle question", 2);
+        Optional<ChatbotQuestion> updated = chatbotQuestionService.updateQuestion(qId, "Nouvelle question", 2, "boolean", false);
         assertTrue(updated.isPresent());
         assertEquals("Nouvelle question", updated.get().getQuestionText());
         assertEquals(2, updated.get().getOrderIndex());
+        assertEquals("boolean", updated.get().getAnswerType());
+        assertFalse(updated.get().isRequired());
     }
 
     @Test

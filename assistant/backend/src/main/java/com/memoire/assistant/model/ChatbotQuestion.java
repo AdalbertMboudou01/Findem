@@ -21,6 +21,12 @@ public class ChatbotQuestion {
     @Column(nullable = false)
     private int orderIndex;
 
+    @Column(nullable = false)
+    private String answerType = "open";
+
+    @Column(name = "is_required", nullable = false)
+    private boolean required = true;
+
     // Getters et setters
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -33,4 +39,10 @@ public class ChatbotQuestion {
 
     public int getOrderIndex() { return orderIndex; }
     public void setOrderIndex(int orderIndex) { this.orderIndex = orderIndex; }
+
+    public String getAnswerType() { return answerType; }
+    public void setAnswerType(String answerType) { this.answerType = answerType; }
+
+    public boolean isRequired() { return required; }
+    public void setRequired(boolean required) { this.required = required; }
 }

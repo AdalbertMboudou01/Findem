@@ -125,6 +125,13 @@ export function putJson<T>(path: string, body: unknown) {
   });
 }
 
+export function patchJson<T>(path: string, body: unknown) {
+  return request<T>(path, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
 export function deleteJson<T>(path: string) {
   return request<T>(path, {
     method: 'DELETE',

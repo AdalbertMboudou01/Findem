@@ -20,6 +20,17 @@ public class ChatAnswerAnalysisDTO {
     private List<String> technicalSkills;
     private boolean hasProjectDetails;
     private boolean hasGitHubOrPortfolio;
+    private String githubSummary;
+
+    // Constat qualitatif lisible
+    private String motivationAssessment;
+    private String projectAssessment;
+    private String githubAssessment;
+    private String availabilityAssessment;
+    private String locationAssessment;
+    private List<String> strengths;
+    private List<String> pointsToConfirm;
+    private String recruiterGuidance;
     
     // Analyse disponibilité et rythme
     private String availabilityStatus; // IMMEDIATE, FUTURE, UNSPECIFIED
@@ -133,6 +144,78 @@ public class ChatAnswerAnalysisDTO {
     
     public void setHasGitHubOrPortfolio(boolean hasGitHubOrPortfolio) {
         this.hasGitHubOrPortfolio = hasGitHubOrPortfolio;
+    }
+
+    public String getGithubSummary() {
+        return githubSummary;
+    }
+
+    public void setGithubSummary(String githubSummary) {
+        this.githubSummary = githubSummary;
+    }
+
+    public String getMotivationAssessment() {
+        return motivationAssessment;
+    }
+
+    public void setMotivationAssessment(String motivationAssessment) {
+        this.motivationAssessment = motivationAssessment;
+    }
+
+    public String getProjectAssessment() {
+        return projectAssessment;
+    }
+
+    public void setProjectAssessment(String projectAssessment) {
+        this.projectAssessment = projectAssessment;
+    }
+
+    public String getGithubAssessment() {
+        return githubAssessment;
+    }
+
+    public void setGithubAssessment(String githubAssessment) {
+        this.githubAssessment = githubAssessment;
+    }
+
+    public String getAvailabilityAssessment() {
+        return availabilityAssessment;
+    }
+
+    public void setAvailabilityAssessment(String availabilityAssessment) {
+        this.availabilityAssessment = availabilityAssessment;
+    }
+
+    public String getLocationAssessment() {
+        return locationAssessment;
+    }
+
+    public void setLocationAssessment(String locationAssessment) {
+        this.locationAssessment = locationAssessment;
+    }
+
+    public List<String> getStrengths() {
+        return strengths;
+    }
+
+    public void setStrengths(List<String> strengths) {
+        this.strengths = strengths;
+    }
+
+    public List<String> getPointsToConfirm() {
+        return pointsToConfirm;
+    }
+
+    public void setPointsToConfirm(List<String> pointsToConfirm) {
+        this.pointsToConfirm = pointsToConfirm;
+    }
+
+    public String getRecruiterGuidance() {
+        return recruiterGuidance;
+    }
+
+    public void setRecruiterGuidance(String recruiterGuidance) {
+        this.recruiterGuidance = recruiterGuidance;
     }
     
     public String getAvailabilityStatus() {

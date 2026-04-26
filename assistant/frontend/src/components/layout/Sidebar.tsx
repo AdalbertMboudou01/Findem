@@ -11,6 +11,7 @@ import {
   ChevronUp,
   Menu,
   X,
+  Archive,
 } from 'lucide-react';
 import { useAuth } from '../../lib/AuthContext';
 
@@ -19,6 +20,7 @@ const navItems = [
   { to: '/offers', icon: Briefcase, label: 'Offres' },
   { to: '/candidates', icon: Users, label: 'Candidats', matchPrefix: '/candidates' },
   { to: '/chatbot', icon: Bot, label: 'Chatbot' },
+  { to: '/vivier', icon: Archive, label: 'Vivier' },
   { to: '/entreprise', icon: Building2, label: 'Entreprise' },
 ];
 
