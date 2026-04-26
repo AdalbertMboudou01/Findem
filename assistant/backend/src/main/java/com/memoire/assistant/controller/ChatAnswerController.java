@@ -19,6 +19,8 @@ import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.UUID;
 
 @RestController
@@ -119,6 +121,17 @@ public class ChatAnswerController {
             @Parameter(description = "ID de la candidature") @PathVariable UUID applicationId) {
         try {
             ChatAnswerAnalysisDTO analysis = chatAnswerService.analyzeChatAnswers(applicationId);
+            List<AnalysisFactFeedbackResponse> latestFeedback = analysisFactFeedbackService.getLatestFeedbackByApplication(applicationId);
+
+            Set<String> reviewedKeys = latestFeedback.stream()
+                .map(item -> ((item.getDimension() == null ? "general" : item.getDimension()) + "::" + (item.getFinding() == null ? "" : item.getFinding())))
+                .collect(Collectors.toSet());
+
+            int totalFacts = analysis.getSemanticFacts() == null ? 0 : analysis.getSemanticFacts().size();
+            int reviewedFacts = analysis.getSemanticFacts() == null ? 0 : (int) analysis.getSemanticFacts().stream()
+                .filter(f -> reviewedKeys.contains((f.getDimension() == null ? "general" : f.getDimension()) + "::" + (f.getFinding() == null ? "" : f.getFinding())))
+                .count();
+            double completionRate = totalFacts == 0 ? 0.0 : ((double) reviewedFacts / (double) totalFacts);
 
             Map<String, Object> analysisSchema = Map.of(
                 "version", analysis.getAnalysisSchemaVersion() == null ? "phase1.v1" : analysis.getAnalysisSchemaVersion(),
@@ -126,6 +139,12 @@ public class ChatAnswerController {
                 "missingInformation", analysis.getMissingInformation() == null ? List.of() : analysis.getMissingInformation(),
                 "contradictions", analysis.getInconsistencies() == null ? List.of() : analysis.getInconsistencies(),
                 "fallbackUsed", analysis.isSemanticFallbackUsed()
+            );
+
+            Map<String, Object> analysisReviewCoverage = Map.of(
+                "reviewedFacts", reviewedFacts,
+                "totalFacts", totalFacts,
+                "completionRate", completionRate
             );
             
             return ResponseEntity.ok(
@@ -152,7 +171,8 @@ public class ChatAnswerController {
                     Map.entry("inconsistencies", analysis.getInconsistencies()),
                     Map.entry("pointsToConfirm", analysis.getPointsToConfirm() == null ? List.of() : analysis.getPointsToConfirm()),
                     Map.entry("recruiterGuidance", analysis.getRecruiterGuidance() == null ? "" : analysis.getRecruiterGuidance()),
-                    Map.entry("analysisSchema", analysisSchema)
+                    Map.entry("analysisSchema", analysisSchema),
+                    Map.entry("analysisReviewCoverage", analysisReviewCoverage)
                 )
             );
         } catch (Exception e) {

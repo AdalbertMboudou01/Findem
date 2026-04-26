@@ -480,6 +480,20 @@ export default function CandidateDetail() {
                 {c.analysis_schema_version && (
                   <p className="text-caption1 text-t-fg3 mb-3">Schema: {c.analysis_schema_version}</p>
                 )}
+                {c.review_total_facts > 0 && (
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between text-caption1 text-t-fg3 mb-1">
+                      <span>Progression de revue</span>
+                      <span>{c.review_reviewed_facts}/{c.review_total_facts} ({Math.round(c.review_completion_rate * 100)}%)</span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-t-bg3 overflow-hidden">
+                      <div
+                        className="h-full bg-t-brand-80"
+                        style={{ width: `${Math.round(c.review_completion_rate * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
                 <ul className="space-y-3">
                   {c.analysis_facts.map((fact, i) => {
                     const key = feedbackKey(fact.dimension, fact.finding);

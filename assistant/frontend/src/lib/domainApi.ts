@@ -80,6 +80,11 @@ type BackendChatAnswerSummary = {
     contradictions?: string[];
     fallbackUsed?: boolean;
   };
+  analysisReviewCoverage?: {
+    reviewedFacts?: number;
+    totalFacts?: number;
+    completionRate?: number;
+  };
 };
 
 type BackendApplicationStatus = {
@@ -476,6 +481,9 @@ export async function loadRecruitmentData(): Promise<{ offers: Offer[]; candidat
       analysis_schema_version: analysis?.analysisSchema?.version?.trim() || null,
       analysis_fallback_used: Boolean(analysis?.analysisSchema?.fallbackUsed),
       analysis_facts: analysisFacts,
+      review_total_facts: Math.max(0, Number(analysis?.analysisReviewCoverage?.totalFacts || 0)),
+      review_reviewed_facts: Math.max(0, Number(analysis?.analysisReviewCoverage?.reviewedFacts || 0)),
+      review_completion_rate: Math.max(0, Math.min(1, Number(analysis?.analysisReviewCoverage?.completionRate || 0))),
       chatbot_responses: null,
       chatbot_completed: Boolean(analysis),
       offer_id: app?.job?.jobId || null,

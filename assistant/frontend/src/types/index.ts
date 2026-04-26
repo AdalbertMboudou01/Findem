@@ -92,6 +92,9 @@ export interface Candidate {
   analysis_schema_version: string | null;
   analysis_fallback_used: boolean;
   analysis_facts: AnalysisFact[];
+  review_total_facts: number;
+  review_reviewed_facts: number;
+  review_completion_rate: number;
   chatbot_responses: ChatbotResponse[] | null;
   chatbot_completed: boolean;
   offer_id: string | null;
