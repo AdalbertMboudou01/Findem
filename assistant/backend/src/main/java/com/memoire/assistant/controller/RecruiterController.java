@@ -8,6 +8,8 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 import java.util.List;
 import java.util.Optional;
@@ -40,13 +42,10 @@ public class RecruiterController {
 
     @PostMapping
     public Recruiter createRecruiter(@Valid @RequestBody RecruiterCreateRequest request) {
-        // Conversion manuelle du DTO vers l'entité (à adapter selon ta logique)
-        Recruiter recruiter = new Recruiter();
-        recruiter.setName(request.getName());
-        recruiter.setEmail(request.getEmail());
-        recruiter.setRole(request.getRole());
-        // Ici, il faudrait hasher le mot de passe et gérer l'association User/Recruiter si besoin
-        return recruiterService.saveRecruiter(recruiter);
+        throw new ResponseStatusException(
+            HttpStatus.METHOD_NOT_ALLOWED,
+            "Utilisez /api/company-members/invitations pour ajouter un recruteur"
+        );
     }
 
     @PutMapping("/{id}")
