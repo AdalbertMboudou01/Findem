@@ -172,6 +172,18 @@ public class ChatAnswerController {
         }
     }
 
+    @GetMapping("/feedback/{applicationId}/latest")
+    @PreAuthorize("hasRole('RECRUITER') or hasRole('ADMIN')")
+    @Operation(summary = "Lister les dernieres corrections par constat", description = "Retourne uniquement la derniere decision pour chaque constat")
+    public ResponseEntity<List<AnalysisFactFeedbackResponse>> getLatestAnalysisFeedback(
+            @Parameter(description = "ID de la candidature") @PathVariable UUID applicationId) {
+        try {
+            return ResponseEntity.ok(analysisFactFeedbackService.getLatestFeedbackByApplication(applicationId));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+    }
+
     @PostMapping("/feedback/{applicationId}")
     @PreAuthorize("hasRole('RECRUITER') or hasRole('ADMIN')")
     @Operation(summary = "Ajouter une correction recruteur", description = "Enregistre une validation/correction/rejet d'un constat d'analyse")

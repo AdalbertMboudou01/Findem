@@ -11,7 +11,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
+import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
 
 @Service
@@ -57,6 +59,23 @@ public class AnalysisFactFeedbackService {
             .stream()
             .map(this::toResponse)
             .collect(Collectors.toList());
+    }
+
+    public List<AnalysisFactFeedbackResponse> getLatestFeedbackByApplication(UUID applicationId) {
+        List<AnalysisFactFeedbackResponse> ordered = getFeedbackByApplication(applicationId);
+        Map<String, AnalysisFactFeedbackResponse> latestByKey = new LinkedHashMap<>();
+
+        for (AnalysisFactFeedbackResponse item : ordered) {
+            String key = (item.getDimension() == null ? "general" : item.getDimension())
+                + "::"
+                + (item.getFinding() == null ? "" : item.getFinding());
+
+            if (!latestByKey.containsKey(key)) {
+                latestByKey.put(key, item);
+            }
+        }
+
+        return latestByKey.values().stream().collect(Collectors.toList());
     }
 
     private AnalysisFactFeedbackResponse toResponse(AnalysisFactFeedback feedback) {

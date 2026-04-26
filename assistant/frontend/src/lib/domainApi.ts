@@ -586,6 +586,21 @@ export async function loadAnalysisFactFeedback(applicationId: string): Promise<A
   }));
 }
 
+export async function loadLatestAnalysisFactFeedback(applicationId: string): Promise<AnalysisFactFeedback[]> {
+  const entries = await getJson<BackendAnalysisFactFeedback[]>(`/api/chat-answers/feedback/${applicationId}/latest`);
+  return (entries || []).map((item) => ({
+    feedback_id: item.feedbackId || '',
+    application_id: item.applicationId || applicationId,
+    dimension: item.dimension || 'general',
+    finding: item.finding || '',
+    evidence: item.evidence || '',
+    decision: (item.decision || 'CONFIRMED') as AnalysisFactFeedbackDecision,
+    corrected_finding: item.correctedFinding || '',
+    reviewer_comment: item.reviewerComment || '',
+    created_at: item.createdAt || new Date().toISOString(),
+  }));
+}
+
 export async function submitAnalysisFactFeedback(applicationId: string, payload: {
   dimension: string;
   finding: string;

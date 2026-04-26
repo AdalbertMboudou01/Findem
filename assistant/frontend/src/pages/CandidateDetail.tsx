@@ -28,7 +28,7 @@ import {
 import { TriBadge, StatusBadge } from '../components/ui/Badge';
 import type { AnalysisFactFeedback, AnalysisFactFeedbackDecision, Candidate, CandidateStatus, Offer } from '../types';
 import { useEffect, useMemo, useState } from 'react';
-import { loadAnalysisFactFeedback, loadRecruitmentData, setCandidateDecision, submitAnalysisFactFeedback } from '../lib/domainApi';
+import { loadAnalysisFactFeedback, loadLatestAnalysisFactFeedback, loadRecruitmentData, setCandidateDecision, submitAnalysisFactFeedback } from '../lib/domainApi';
 import { getBlob, getJson } from '../lib/api';
 
 type ChatAnswerApi = {
@@ -87,6 +87,7 @@ export default function CandidateDetail() {
   const [chatbotCompletedAt, setChatbotCompletedAt] = useState<string | null>(null);
   const [chatbotLoading, setChatbotLoading] = useState(false);
   const [factFeedback, setFactFeedback] = useState<AnalysisFactFeedback[]>([]);
+  const [latestFactFeedback, setLatestFactFeedback] = useState<AnalysisFactFeedback[]>([]);
   const [factFeedbackError, setFactFeedbackError] = useState('');
   const [factDrafts, setFactDrafts] = useState<Record<string, { decision: AnalysisFactFeedbackDecision; correctedFinding: string; reviewerComment: string; saving: boolean }>>({});
   const [noteText, setNoteText] = useState('');
@@ -193,9 +194,25 @@ export default function CandidateDetail() {
       }
 
       try {
-        const data = await loadAnalysisFactFeedback(c.application_id);
+        const [history, latest] = await Promise.all([
+          loadAnalysisFactFeedback(c.application_id),
+          loadLatestAnalysisFactFeedback(c.application_id),
+        ]);
         if (!mounted) return;
-        setFactFeedback(data);
+        setFactFeedback(history);
+        setLatestFactFeedback(latest);
+
+        const seededDrafts: Record<string, { decision: AnalysisFactFeedbackDecision; correctedFinding: string; reviewerComment: string; saving: boolean }> = {};
+        latest.forEach((entry) => {
+          const key = `${entry.dimension}::${entry.finding}`;
+          seededDrafts[key] = {
+            decision: entry.decision,
+            correctedFinding: entry.corrected_finding || '',
+            reviewerComment: entry.reviewer_comment || '',
+            saving: false,
+          };
+        });
+        setFactDrafts((prev) => ({ ...seededDrafts, ...prev }));
         setFactFeedbackError('');
       } catch {
         if (!mounted) return;
@@ -249,6 +266,10 @@ export default function CandidateDetail() {
       });
 
       setFactFeedback((prev) => [saved, ...prev]);
+      setLatestFactFeedback((prev) => {
+        const key = `${saved.dimension}::${saved.finding}`;
+        return [saved, ...prev.filter((entry) => `${entry.dimension}::${entry.finding}` !== key)];
+      });
       setFactDrafts((prev) => ({
         ...prev,
         [key]: { decision: 'CONFIRMED', correctedFinding: '', reviewerComment: '', saving: false },
@@ -468,7 +489,7 @@ export default function CandidateDetail() {
                       {(() => {
                         const key = feedbackKey(fact.dimension, fact.finding);
                         const draft = ensureDraft(key);
-                        const latestFeedback = factFeedback.find((entry) => entry.dimension === fact.dimension && entry.finding === fact.finding);
+                        const latestFeedback = latestFactFeedback.find((entry) => entry.dimension === fact.dimension && entry.finding === fact.finding);
                         return (
                           <div className="mt-3 border-t border-t-stroke3 pt-3">
                             {latestFeedback && (
@@ -477,6 +498,19 @@ export default function CandidateDetail() {
                                 {latestFeedback.corrected_finding ? ` | Correction: ${latestFeedback.corrected_finding}` : ''}
                               </p>
                             )}
+                            <div className="mb-2">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-fluent text-caption1 font-semibold ${
+                                latestFeedback?.decision === 'CONFIRMED'
+                                  ? 'bg-t-success-bg text-t-success'
+                                  : latestFeedback?.decision === 'CORRECTED'
+                                    ? 'bg-t-brand-160 text-t-brand-80'
+                                    : latestFeedback?.decision === 'REJECTED'
+                                      ? 'bg-t-danger-bg text-t-danger'
+                                      : 'bg-t-bg3 text-t-fg3'
+                              }`}>
+                                {latestFeedback ? `Etat: ${latestFeedback.decision}` : 'Etat: NON_REVIEWED'}
+                              </span>
+                            </div>
                             <div className="grid sm:grid-cols-3 gap-2">
                               <select
                                 value={draft.decision}
