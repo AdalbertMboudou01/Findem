@@ -9,37 +9,75 @@ import {
   Clock,
   Briefcase,
   AlertTriangle,
+  UserPlus,
+  ShieldCheck,
+  Loader2,
+  Copy,
+  Check,
 } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import { TriBadge } from '../components/ui/Badge';
-import { loadRecruitmentData } from '../lib/domainApi';
+import {
+  inviteRecruiter,
+  loadCompanyInvitations,
+  loadCompanyMembers,
+  loadRecruitmentData,
+  type CompanyInvitation,
+  type CompanyRecruiterMember,
+} from '../lib/domainApi';
+import { useAuth } from '../lib/AuthContext';
 import type { Candidate, Offer } from '../types';
 
-type Tab = 'entretiens' | 'discussions' | 'vivier' | 'annonces';
+type Tab = 'entretiens' | 'discussions' | 'vivier' | 'annonces' | 'equipe';
 
 const tabConfig: { key: Tab; label: string; icon: typeof CalendarDays }[] = [
   { key: 'entretiens', label: 'Entretiens', icon: CalendarDays },
   { key: 'discussions', label: 'Discussions', icon: MessageSquare },
   { key: 'vivier', label: 'Vivier', icon: Archive },
   { key: 'annonces', label: 'Annonces', icon: Megaphone },
+  { key: 'equipe', label: 'Equipe', icon: Users },
 ];
 
 export default function Entreprise() {
+  const { user } = useAuth();
+  const isAdmin = (user?.role || '').toUpperCase() === 'ADMIN';
   const [activeTab, setActiveTab] = useState<Tab>('entretiens');
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [members, setMembers] = useState<CompanyRecruiterMember[]>([]);
+  const [invitations, setInvitations] = useState<CompanyInvitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<'RECRUITER' | 'ADMIN'>('RECRUITER');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState('');
+  const [copiedTokenId, setCopiedTokenId] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
 
     (async () => {
       try {
-        const data = await loadRecruitmentData();
+        const [data, recruiterMembers] = await Promise.all([
+          loadRecruitmentData(),
+          loadCompanyMembers(),
+        ]);
+
+        let pendingInvitations: CompanyInvitation[] = [];
+        if (isAdmin) {
+          try {
+            pendingInvitations = await loadCompanyInvitations();
+          } catch {
+            pendingInvitations = [];
+          }
+        }
+
         if (!mounted) return;
         setCandidates(data.candidates);
         setOffers(data.offers);
+        setMembers(recruiterMembers);
+        setInvitations(pendingInvitations);
         setError('');
       } catch (err) {
         if (!mounted) return;
@@ -52,7 +90,39 @@ export default function Entreprise() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [isAdmin]);
+
+  async function handleInviteRecruiter(e: React.FormEvent) {
+    e.preventDefault();
+    setInviteError('');
+
+    if (!inviteEmail.trim()) {
+      setInviteError('Email obligatoire.');
+      return;
+    }
+
+    try {
+      setInviteLoading(true);
+      const created = await inviteRecruiter({
+        email: inviteEmail.trim(),
+        role: inviteRole,
+      });
+      setInvitations((current) => [created, ...current]);
+      setInviteEmail('');
+      setInviteRole('RECRUITER');
+    } catch (err) {
+      setInviteError(err instanceof Error ? err.message : 'Impossible d\'envoyer l\'invitation.');
+    } finally {
+      setInviteLoading(false);
+    }
+  }
+
+  function copyInvitationToken(invitation: CompanyInvitation) {
+    if (!invitation.invitationToken) return;
+    navigator.clipboard.writeText(invitation.invitationToken);
+    setCopiedTokenId(invitation.invitationId);
+    setTimeout(() => setCopiedTokenId(null), 1800);
+  }
 
   const vivierCandidates = useMemo(
     () => candidates.filter((c) => c.status === 'vivier'),
@@ -69,6 +139,7 @@ export default function Entreprise() {
     discussions: 0,
     vivier: vivierCandidates.length,
     annonces: 0,
+    equipe: members.length,
   };
 
   return (
@@ -218,6 +289,109 @@ export default function Entreprise() {
                   <div className="bg-t-warning-bg border border-t-stroke2 rounded-fluent px-4 py-3 text-caption1 text-t-fg2 inline-flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 text-t-warning" />
                     {potentialVivier.length} profil(s) "A revoir" peuvent aussi etre bascules dans le vivier.
+                  </div>
+                )}
+              </>
+            )}
+
+            {!loading && !error && activeTab === 'equipe' && (
+              <>
+                <div>
+                  <h2 className="text-subtitle2 font-semibold text-t-fg1">Equipe recrutement</h2>
+                  <p className="text-caption1 text-t-fg3 mt-0.5">Membres actifs et invitations en attente</p>
+                </div>
+
+                {isAdmin ? (
+                  <form onSubmit={handleInviteRecruiter} className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-4 py-4 space-y-3">
+                    <div className="flex items-center gap-2 text-caption1 text-t-fg2 font-semibold">
+                      <UserPlus className="w-4 h-4" />
+                      Inviter un recruteur
+                    </div>
+                    {inviteError ? (
+                      <div className="px-3 py-2 text-caption1 text-t-danger bg-t-danger-bg border border-red-200 rounded-fluent">
+                        {inviteError}
+                      </div>
+                    ) : null}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <input
+                        type="email"
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        placeholder="recruteur@entreprise.com"
+                        className="sm:col-span-2 h-9 px-3 text-body1 bg-t-bg1 border border-t-stroke2 rounded-fluent outline-none focus:border-t-stroke-brand transition-colors"
+                      />
+                      <select
+                        value={inviteRole}
+                        onChange={(e) => setInviteRole(e.target.value as 'RECRUITER' | 'ADMIN')}
+                        className="h-9 px-3 text-body1 bg-t-bg1 border border-t-stroke2 rounded-fluent outline-none focus:border-t-stroke-brand transition-colors"
+                      >
+                        <option value="RECRUITER">RECRUITER</option>
+                        <option value="ADMIN">ADMIN</option>
+                      </select>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={inviteLoading}
+                      className="h-8 px-3 bg-t-bg-brand hover:bg-t-bg-brand-hover text-white text-caption1 font-semibold rounded-fluent inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
+                    >
+                      {inviteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                      Envoyer l'invitation
+                    </button>
+                  </form>
+                ) : (
+                  <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-4 py-3 text-caption1 text-t-fg3">
+                    Seuls les admins peuvent inviter des recruteurs.
+                  </div>
+                )}
+
+                <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-4 py-4">
+                  <h3 className="text-caption1 font-semibold text-t-fg2 uppercase tracking-wider mb-3">Membres</h3>
+                  {members.length === 0 ? (
+                    <p className="text-caption1 text-t-fg3">Aucun membre trouve.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {members.map((member) => (
+                        <div key={member.recruiterId} className="flex items-center justify-between gap-3 border border-t-stroke3 rounded-fluent px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="text-body1 text-t-fg1 font-semibold truncate">{member.name || 'Sans nom'}</p>
+                            <p className="text-caption1 text-t-fg3 truncate">{member.email}</p>
+                          </div>
+                          <div className="inline-flex items-center gap-1 text-caption2 text-t-fg2">
+                            {member.role === 'ADMIN' ? <ShieldCheck className="w-3.5 h-3.5" /> : <Users className="w-3.5 h-3.5" />}
+                            {member.role}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {isAdmin && (
+                  <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-4 py-4">
+                    <h3 className="text-caption1 font-semibold text-t-fg2 uppercase tracking-wider mb-3">Invitations</h3>
+                    {invitations.length === 0 ? (
+                      <p className="text-caption1 text-t-fg3">Aucune invitation en attente.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {invitations.map((inv) => (
+                          <div key={inv.invitationId} className="flex items-center justify-between gap-3 border border-t-stroke3 rounded-fluent px-3 py-2">
+                            <div className="min-w-0">
+                              <p className="text-body1 text-t-fg1 font-semibold truncate">{inv.email}</p>
+                              <p className="text-caption1 text-t-fg3">{inv.role} • {inv.status}</p>
+                            </div>
+                            {inv.invitationToken ? (
+                              <button
+                                onClick={() => copyInvitationToken(inv)}
+                                className="h-7 px-2 text-caption1 font-medium text-t-fg2 hover:bg-t-bg1-hover rounded-fluent inline-flex items-center gap-1 transition-colors"
+                              >
+                                {copiedTokenId === inv.invitationId ? <Check className="w-3.5 h-3.5 text-t-success" /> : <Copy className="w-3.5 h-3.5" />}
+                                {copiedTokenId === inv.invitationId ? 'Copie' : 'Token'}
+                              </button>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </>

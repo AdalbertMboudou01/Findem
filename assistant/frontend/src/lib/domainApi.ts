@@ -99,7 +99,31 @@ type BackendCompany = {
 
 type BackendRecruiter = {
   recruiterId: string;
+  name?: string;
+  email?: string;
+  role?: string;
+  status?: string;
   company?: { companyId?: string };
+};
+
+type BackendCompanyProfile = {
+  companyId: string;
+  name?: string;
+  sector?: string;
+  size?: string;
+  website?: string;
+  plan?: string;
+};
+
+type BackendInvitation = {
+  invitationId?: string;
+  companyId?: string;
+  email?: string;
+  role?: string;
+  status?: string;
+  expiresAt?: string;
+  createdAt?: string;
+  invitationToken?: string;
 };
 
 type BackendCompanyCreateRequest = {
@@ -153,6 +177,34 @@ export type OfferDraftInput = {
   location: string;
   rythme: string;
   technologies: string[];
+};
+
+export type CompanyProfile = {
+  companyId: string;
+  name: string;
+  sector: string;
+  size: string;
+  website: string;
+  plan: string;
+};
+
+export type CompanyInvitation = {
+  invitationId: string;
+  companyId: string;
+  email: string;
+  role: string;
+  status: string;
+  expiresAt: string | null;
+  createdAt: string | null;
+  invitationToken?: string | null;
+};
+
+export type CompanyRecruiterMember = {
+  recruiterId: string;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
 };
 
 function normalizeOfferStatus(raw?: string): OfferStatus {
@@ -353,6 +405,8 @@ export async function upsertOffer(offerId: string | null, input: OfferDraftInput
     return;
   }
 
+  await assertCompanyProfileComplete();
+
   const ownerIds = await getJobOwnerIds();
   await postJson('/api/jobs', {
     title: input.title,
@@ -364,6 +418,101 @@ export async function upsertOffer(offerId: string | null, input: OfferDraftInput
     companyId: ownerIds.companyId,
     ownerRecruiterId: ownerIds.ownerRecruiterId,
   });
+}
+
+function mapCompanyProfile(raw: BackendCompanyProfile): CompanyProfile {
+  return {
+    companyId: raw.companyId,
+    name: raw.name || '',
+    sector: raw.sector || '',
+    size: raw.size || '',
+    website: raw.website || '',
+    plan: raw.plan || 'starter',
+  };
+}
+
+function isProfileComplete(profile: CompanyProfile | null) {
+  if (!profile) return false;
+  return Boolean(profile.name.trim() && profile.sector.trim() && profile.size.trim());
+}
+
+export async function loadCurrentCompanyProfile(): Promise<CompanyProfile | null> {
+  const companies = await getJson<BackendCompanyProfile[]>('/api/companies');
+  if (!companies || companies.length === 0) {
+    return null;
+  }
+  return mapCompanyProfile(companies[0]);
+}
+
+export async function saveCurrentCompanyProfile(payload: {
+  name: string;
+  sector: string;
+  size: string;
+  website?: string;
+  plan?: string;
+}): Promise<CompanyProfile> {
+  const existing = await loadCurrentCompanyProfile();
+  if (!existing) {
+    throw new Error('Aucune entreprise liee a votre compte.');
+  }
+
+  const saved = await putJson<BackendCompanyProfile>(`/api/companies/${existing.companyId}`, {
+    companyId: existing.companyId,
+    name: payload.name,
+    sector: payload.sector,
+    size: payload.size,
+    website: payload.website || '',
+    plan: payload.plan || existing.plan || 'starter',
+    config: {},
+  });
+
+  return mapCompanyProfile(saved);
+}
+
+export async function assertCompanyProfileComplete(): Promise<void> {
+  const profile = await loadCurrentCompanyProfile();
+  if (!isProfileComplete(profile)) {
+    throw new Error('Profil entreprise incomplet. Completez votre setup entreprise avant de creer une offre.');
+  }
+}
+
+export async function loadCompanyMembers(): Promise<CompanyRecruiterMember[]> {
+  const recruiters = await getJson<BackendRecruiter[]>('/api/recruiters');
+  return (recruiters || []).map((r) => ({
+    recruiterId: r.recruiterId,
+    name: r.name || '',
+    email: r.email || '',
+    role: (r.role || 'RECRUITER').toUpperCase(),
+    status: r.status || '',
+  }));
+}
+
+export async function loadCompanyInvitations(): Promise<CompanyInvitation[]> {
+  const invitations = await getJson<BackendInvitation[]>('/api/company-members/invitations');
+  return (invitations || []).map((inv) => ({
+    invitationId: inv.invitationId || '',
+    companyId: inv.companyId || '',
+    email: inv.email || '',
+    role: (inv.role || 'RECRUITER').toUpperCase(),
+    status: inv.status || '',
+    expiresAt: inv.expiresAt || null,
+    createdAt: inv.createdAt || null,
+    invitationToken: inv.invitationToken || null,
+  }));
+}
+
+export async function inviteRecruiter(payload: { email: string; role: 'RECRUITER' | 'ADMIN' }): Promise<CompanyInvitation> {
+  const created = await postJson<BackendInvitation>('/api/company-members/invitations', payload);
+  return {
+    invitationId: created.invitationId || '',
+    companyId: created.companyId || '',
+    email: created.email || payload.email,
+    role: (created.role || payload.role).toUpperCase(),
+    status: created.status || 'PENDING',
+    expiresAt: created.expiresAt || null,
+    createdAt: created.createdAt || null,
+    invitationToken: created.invitationToken || null,
+  };
 }
 
 export async function setCandidateDecision(candidateId: string, status: CandidateStatus) {
