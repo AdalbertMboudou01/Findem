@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -32,6 +33,9 @@ class ChatAnswerServiceTest {
     @Mock
     private ApplicationRepository applicationRepository;
 
+    @Mock
+    private SemanticExtractionService semanticExtractionService;
+
     @InjectMocks
     private ChatAnswerService chatAnswerService;
 
@@ -43,6 +47,7 @@ class ChatAnswerServiceTest {
     @BeforeEach
     void setUp() {
         applicationId = UUID.randomUUID();
+        lenient().when(semanticExtractionService.extractFacts(any())).thenReturn(Collections.emptyList());
         
         // Setup Job
         job = new Job();
@@ -108,7 +113,7 @@ class ChatAnswerServiceTest {
         assertTrue(result.getCompletenessScore() >= 0.8);
         assertTrue(result.getInconsistencies().isEmpty());
         assertEquals("MANUAL_REVIEW", result.getRecommendedAction());
-        assertEquals("phase1.v1", result.getAnalysisSchemaVersion());
+        assertEquals("phase1.v2-fallback", result.getAnalysisSchemaVersion());
         assertNotNull(result.getSemanticFacts());
         assertFalse(result.getSemanticFacts().isEmpty());
         assertTrue(result.getSemanticFacts().stream().allMatch(f -> f.getEvidence() != null && !f.getEvidence().isBlank()));

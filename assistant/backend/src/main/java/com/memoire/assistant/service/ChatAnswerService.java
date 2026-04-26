@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import java.text.Normalizer;
 import java.util.*;
 import java.util.regex.Pattern;
-import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
 @Service
@@ -28,6 +27,9 @@ public class ChatAnswerService {
 
     @Autowired
     private GitHubAnalysisService gitHubAnalysisService;
+
+    @Autowired
+    private SemanticExtractionService semanticExtractionService;
     
     private static final Pattern TOKEN_SPLIT_PATTERN = Pattern.compile("[,;/\\n]");
     
@@ -394,8 +396,29 @@ public class ChatAnswerService {
     }
 
     private void extractConstrainedSemanticFacts(List<ChatAnswer> answers, ChatAnswerAnalysisDTO analysis) {
+        List<AnalysisFactDTO> llmFacts = semanticExtractionService.extractFacts(answers);
+        if (llmFacts != null && !llmFacts.isEmpty()) {
+            List<AnalysisFactDTO> sanitizedFacts = sanitizeFacts(llmFacts);
+            List<String> missing = analysis.getMissingInformation() == null
+                ? new ArrayList<>()
+                : new ArrayList<>(analysis.getMissingInformation());
+
+            if (sanitizedFacts.stream().noneMatch(f -> "motivation".equals(f.getDimension()))) {
+                missing.add("Aucune preuve textuelle explicite sur la motivation");
+            }
+            if (sanitizedFacts.stream().noneMatch(f -> "projects".equals(f.getDimension()))) {
+                missing.add("Aucune preuve textuelle explicite sur les projets");
+            }
+
+            analysis.setAnalysisSchemaVersion("phase1.v2-llm");
+            analysis.setSemanticFacts(sanitizedFacts);
+            analysis.setSemanticFallbackUsed(false);
+            analysis.setMissingInformation(missing.stream().distinct().collect(Collectors.toList()));
+            return;
+        }
+
         List<AnalysisFactDTO> facts = new ArrayList<>();
-        boolean fallbackUsed = false;
+        boolean fallbackUsed = true;
 
         List<ChatAnswer> motivationAnswers = answers.stream()
             .filter(this::isMotivationAnswer)
@@ -449,7 +472,7 @@ public class ChatAnswerService {
 
         List<AnalysisFactDTO> sanitizedFacts = sanitizeFacts(facts);
 
-        analysis.setAnalysisSchemaVersion("phase1.v1");
+        analysis.setAnalysisSchemaVersion("phase1.v2-fallback");
         analysis.setSemanticFacts(sanitizedFacts);
         analysis.setSemanticFallbackUsed(fallbackUsed);
         analysis.setMissingInformation(missing.stream().distinct().collect(Collectors.toList()));
