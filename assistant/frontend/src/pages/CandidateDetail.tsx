@@ -530,6 +530,19 @@ export default function CandidateDetail() {
                     Certains constats proviennent d'un fallback technique car l'extraction semantique etait partielle.
                   </p>
                 )}
+                {factFeedback.length > 0 && (
+                  <div className="mt-4 border-t border-t-stroke3 pt-3">
+                    <h4 className="text-caption1 font-semibold text-t-fg2 mb-2">Historique des validations recruteur</h4>
+                    <ul className="space-y-1">
+                      {factFeedback.slice(0, 6).map((entry) => (
+                        <li key={entry.feedback_id} className="text-caption1 text-t-fg3">
+                          [{entry.decision}] {entry.dimension} - {entry.finding}
+                          {entry.corrected_finding ? ` -> ${entry.corrected_finding}` : ''}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
 
