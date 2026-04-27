@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Outlet, useParams } from 'react-router-dom';
-import { ChevronDown, Search } from 'lucide-react';
+import { ChevronDown, Search, Users } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import { TriBadge } from '../components/ui/Badge';
 import { loadRecruitmentData } from '../lib/domainApi';
@@ -77,9 +77,23 @@ export default function Candidates() {
     return m;
   }, [candidates]);
 
+  function resetFilters() {
+    setTriFilter('all');
+    setStatusFilter('all');
+    setOfferFilter('all');
+    setSearch('');
+  }
+
   return (
     <>
-      <TopBar title="Candidats" />
+      <TopBar title="Candidats" subtitle="Tri collaboratif et suivi individuel" />
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 px-4 sm:px-6 py-3 bg-t-bg2 border-b border-t-stroke3 shrink-0">
+        <div className="flex items-center gap-2">
+          <Users className="w-4 h-4 text-t-fg3" strokeWidth={1.5} />
+          <span className="text-caption1 text-t-fg3">{candidates.length} candidats</span>
+        </div>
+      </div>
+
       <div className="flex-1 flex overflow-hidden">
         <div className={`w-full md:w-panel shrink-0 border-r border-t-stroke2 flex flex-col bg-t-bg2 ${selectedId ? 'hidden md:flex' : 'flex'}`}>
           <div className="flex items-center border-b border-t-stroke3 px-1 shrink-0 overflow-x-auto">
@@ -99,7 +113,7 @@ export default function Candidates() {
             ))}
           </div>
 
-          <div className="px-3 py-2 space-y-1.5 border-b border-t-stroke3 shrink-0">
+          <div className="px-3 py-2 space-y-2 border-b border-t-stroke3 shrink-0">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-t-fg3" />
               <input
@@ -107,7 +121,7 @@ export default function Candidates() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Rechercher..."
-                className="w-full h-7 pl-8 pr-2 text-caption1 bg-t-bg1 border border-t-stroke2 rounded-fluent outline-none focus:border-t-stroke-brand transition-colors placeholder:text-t-fg-disabled"
+                className="w-full h-8 pl-8 pr-2 text-caption1 bg-t-bg1 border border-t-stroke2 rounded-fluent outline-none focus:border-t-stroke-brand transition-colors placeholder:text-t-fg-disabled"
               />
             </div>
             <div className="flex gap-1.5">
@@ -115,14 +129,13 @@ export default function Candidates() {
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as CandidateStatus | 'all')}
-                  className="w-full appearance-none h-6 pl-2 pr-5 text-caption2 bg-t-bg1 border border-t-stroke2 rounded-fluent text-t-fg2 outline-none cursor-pointer"
+                  className="w-full appearance-none h-8 pl-2 pr-7 text-caption1 bg-t-bg1 border border-t-stroke2 rounded-fluent text-t-fg2 outline-none cursor-pointer"
                 >
                   <option value="all">Statut</option>
                   <option value="en_attente">En attente</option>
                   <option value="retenu_entretien">Retenu</option>
                   <option value="a_revoir_manuellement">A revoir</option>
                   <option value="non_retenu">Non retenu</option>
-                  <option value="vivier">Vivier</option>
                 </select>
                 <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-t-fg3 pointer-events-none" />
               </div>
@@ -130,7 +143,7 @@ export default function Candidates() {
                 <select
                   value={offerFilter}
                   onChange={(e) => setOfferFilter(e.target.value)}
-                  className="w-full appearance-none h-6 pl-2 pr-5 text-caption2 bg-t-bg1 border border-t-stroke2 rounded-fluent text-t-fg2 outline-none cursor-pointer"
+                  className="w-full appearance-none h-8 pl-2 pr-7 text-caption1 bg-t-bg1 border border-t-stroke2 rounded-fluent text-t-fg2 outline-none cursor-pointer"
                 >
                   <option value="all">Offre</option>
                   {offers.map((o) => (
@@ -140,6 +153,14 @@ export default function Candidates() {
                 <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 text-t-fg3 pointer-events-none" />
               </div>
             </div>
+            {(triFilter !== 'all' || statusFilter !== 'all' || offerFilter !== 'all' || !!search) && (
+              <button
+                onClick={resetFilters}
+                className="h-7 px-2 rounded-fluent text-caption2 text-t-fg3 hover:text-t-fg2 hover:bg-t-bg1 transition-colors"
+              >
+                Reinitialiser les filtres
+              </button>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto">

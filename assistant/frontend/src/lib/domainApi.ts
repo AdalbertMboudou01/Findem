@@ -1,5 +1,5 @@
 import { deleteJson, getJson, postJson, putJson, patchJson } from './api';
-import type { AnalysisFact, AnalysisFactFeedback, AnalysisFactFeedbackDecision, Candidate, CandidateStatus, ChatbotQuestion, Offer, OfferStatus, TriCategory } from '../types';
+import type { AnalysisFact, AnalysisFactFeedback, AnalysisFactFeedbackDecision, ApplicationActivity, ApplicationComment, Candidate, CandidateStatus, ChatbotQuestion, InAppNotification, Offer, OfferStatus, TriCategory } from '../types';
 
 type BackendCandidate = {
   candidateId: string;
@@ -169,15 +169,64 @@ type BackendAnalysisFactFeedback = {
   createdAt?: string;
 };
 
+type BackendApplicationComment = {
+  id?: string;
+  applicationId?: string;
+  companyId?: string;
+  authorUserId?: string;
+  authorRecruiterId?: string;
+  authorName?: string;
+  authorEmail?: string;
+  content?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+type BackendApplicationActivity = {
+  id?: string;
+  applicationId?: string;
+  companyId?: string;
+  actorUserId?: string;
+  actorRecruiterId?: string;
+  eventType?: string;
+  title?: string;
+  description?: string;
+  createdAt?: string;
+};
+
+type BackendInAppNotification = {
+  id?: string;
+  type?: string;
+  title?: string;
+  message?: string;
+  read?: boolean;
+  referenceType?: string;
+  referenceId?: string;
+  createdAt?: string;
+};
+
+type BackendInAppNotificationListResponse = {
+  notifications?: BackendInAppNotification[];
+  unreadCount?: number;
+};
+
 export type OfferDraftInput = {
   title: string;
-  context: string;
-  missions: string;
-  service: string;
+  description: string;
   location: string;
-  rythme: string;
-  technologies: string[];
+  contractDuration: string;
 };
+
+function normalizeContractDuration(raw: string) {
+  const value = (raw || '').trim().toLowerCase();
+  if (!value) return null;
+
+  if (value === '6' || value === '6m' || value === '6 mois' || value === '6 month' || value === '6 months') return '6 mois';
+  if (value === '12' || value === '12m' || value === '12 mois' || value === '12 month' || value === '12 months') return '12 mois';
+  if (value === '24' || value === '24m' || value === '24 mois' || value === '24 month' || value === '24 months') return '24 mois';
+  if (value === '36' || value === '36m' || value === '36 mois' || value === '36 month' || value === '36 months') return '36 mois';
+  return null;
+}
 
 export type CompanyProfile = {
   companyId: string;
@@ -209,7 +258,6 @@ export type CompanyRecruiterMember = {
 
 function normalizeOfferStatus(raw?: string): OfferStatus {
   const value = (raw || '').toLowerCase();
-  if (value.includes('pause')) return 'pause';
   if (value.includes('cloture') || value.includes('ferme')) return 'cloture';
   return 'ouvert';
 }
@@ -250,17 +298,6 @@ function toSlug(title: string) {
     .replace(/(^-|-$)/g, '');
 }
 
-function normalizeContractDuration(raw: string) {
-  const value = (raw || '').trim().toLowerCase();
-  if (!value) return null;
-
-  if (value === '6' || value === '6m' || value === '6 mois' || value === '6 month' || value === '6 months') return '6 mois';
-  if (value === '12' || value === '12m' || value === '12 mois' || value === '12 month' || value === '12 months') return '12 mois';
-  if (value === '24' || value === '24m' || value === '24 mois' || value === '24 month' || value === '24 months') return '24 mois';
-  if (value === '36' || value === '36m' || value === '36 mois' || value === '36 month' || value === '36 months') return '36 mois';
-  return null;
-}
-
 function mapStatusToCode(status: CandidateStatus) {
   switch (status) {
     case 'retenu_entretien':
@@ -272,7 +309,7 @@ function mapStatusToCode(status: CandidateStatus) {
     case 'en_attente':
       return { code: 'en_attente', label: 'En attente' };
     case 'vivier':
-      return { code: 'vivier', label: 'Vivier' };
+      return { code: 'vivier', label: 'A revoir manuellement' };
     default:
       return { code: 'en_attente', label: 'En attente' };
   }
@@ -379,11 +416,12 @@ export async function setOfferStatus(offerId: string, status: OfferStatus) {
   });
 }
 
-export async function upsertOffer(offerId: string | null, input: OfferDraftInput) {
-  const description = [input.context, input.missions].filter(Boolean).join('\n\n');
-  const contractDuration = normalizeContractDuration(input.rythme);
+export async function upsertOffer(offerId: string | null, input: OfferDraftInput): Promise<string> {
+  const description = input.description.trim();
+  const location = input.location.trim();
+  const normalizedDuration = normalizeContractDuration(input.contractDuration);
 
-  if (!contractDuration) {
+  if (input.contractDuration.trim().length > 0 && !normalizedDuration) {
     throw new Error('La duree du contrat doit etre: 6 mois, 12 mois, 24 mois ou 36 mois.');
   }
 
@@ -393,31 +431,37 @@ export async function upsertOffer(offerId: string | null, input: OfferDraftInput
       ...current,
       title: input.title,
       description,
-      location: input.location,
-      alternanceRhythm: contractDuration,
-      technologies: input.technologies,
-      contextePoste: input.context,
-      missionsDetaillees: input.missions,
-      serviceEntreprise: input.service,
+      location: location || current.location || 'Non renseigne',
+      alternanceRhythm: normalizedDuration,
+      technologies: current.technologies || [],
+      contextePoste: description,
+      missionsDetaillees: description,
+      serviceEntreprise: current.serviceEntreprise || 'Non renseigne',
       statut: current.statut || 'ouvert',
       slug: current.slug || toSlug(input.title),
     });
-    return;
+    return offerId;
   }
 
   await assertCompanyProfileComplete();
 
   const ownerIds = await getJobOwnerIds();
-  await postJson('/api/jobs', {
+  const created = await postJson<BackendJob>('/api/jobs', {
     title: input.title,
     description,
-    location: input.location,
-    alternanceRhythm: contractDuration,
+    location: location || 'Non renseigne',
+    alternanceRhythm: normalizedDuration,
     blockingCriteria: {},
     slug: toSlug(input.title),
     companyId: ownerIds.companyId,
     ownerRecruiterId: ownerIds.ownerRecruiterId,
   });
+
+  if (!created?.jobId) {
+    throw new Error('Creation de l\'offre invalide: identifiant manquant.');
+  }
+
+  return created.jobId;
 }
 
 function mapCompanyProfile(raw: BackendCompanyProfile): CompanyProfile {
@@ -756,6 +800,80 @@ export async function loadLatestAnalysisFactFeedback(applicationId: string): Pro
     reviewer_comment: item.reviewerComment || '',
     created_at: item.createdAt || new Date().toISOString(),
   }));
+}
+
+export async function loadApplicationComments(applicationId: string): Promise<ApplicationComment[]> {
+  const entries = await getJson<BackendApplicationComment[]>(`/api/applications/${applicationId}/comments`);
+  return (entries || []).map((item) => ({
+    id: item.id || '',
+    application_id: item.applicationId || applicationId,
+    company_id: item.companyId || '',
+    author_user_id: item.authorUserId || null,
+    author_recruiter_id: item.authorRecruiterId || null,
+    author_name: item.authorName || 'Utilisateur interne',
+    author_email: item.authorEmail || null,
+    content: item.content || '',
+    created_at: item.createdAt || new Date().toISOString(),
+    updated_at: item.updatedAt || null,
+  }));
+}
+
+export async function createApplicationComment(applicationId: string, content: string): Promise<ApplicationComment> {
+  const created = await postJson<BackendApplicationComment>(`/api/applications/${applicationId}/comments`, { content });
+  return {
+    id: created.id || '',
+    application_id: created.applicationId || applicationId,
+    company_id: created.companyId || '',
+    author_user_id: created.authorUserId || null,
+    author_recruiter_id: created.authorRecruiterId || null,
+    author_name: created.authorName || 'Utilisateur interne',
+    author_email: created.authorEmail || null,
+    content: created.content || content,
+    created_at: created.createdAt || new Date().toISOString(),
+    updated_at: created.updatedAt || null,
+  };
+}
+
+export async function loadApplicationActivities(applicationId: string): Promise<ApplicationActivity[]> {
+  const entries = await getJson<BackendApplicationActivity[]>(`/api/applications/${applicationId}/activities`);
+  return (entries || []).map((item) => ({
+    id: item.id || '',
+    application_id: item.applicationId || applicationId,
+    company_id: item.companyId || '',
+    actor_user_id: item.actorUserId || null,
+    actor_recruiter_id: item.actorRecruiterId || null,
+    event_type: item.eventType || 'APPLICATION_EVENT',
+    title: item.title || 'Activite',
+    description: item.description || '',
+    created_at: item.createdAt || new Date().toISOString(),
+  }));
+}
+
+export async function loadMyInAppNotifications(): Promise<{ notifications: InAppNotification[]; unreadCount: number }> {
+  const response = await getJson<BackendInAppNotificationListResponse>('/api/internal-notifications/me');
+  const notifications = (response.notifications || []).map((item) => ({
+    id: item.id || '',
+    type: item.type || 'info',
+    title: item.title || 'Notification',
+    message: item.message || '',
+    read: Boolean(item.read),
+    reference_type: item.referenceType || '',
+    reference_id: item.referenceId || null,
+    created_at: item.createdAt || new Date().toISOString(),
+  }));
+
+  return {
+    notifications,
+    unreadCount: Number(response.unreadCount || 0),
+  };
+}
+
+export async function markInAppNotificationAsRead(notificationId: string): Promise<void> {
+  await patchJson<void>(`/api/internal-notifications/${notificationId}/read`, {});
+}
+
+export async function markAllInAppNotificationsAsRead(): Promise<void> {
+  await patchJson<void>('/api/internal-notifications/read-all', {});
 }
 
 export async function submitAnalysisFactFeedback(applicationId: string, payload: {

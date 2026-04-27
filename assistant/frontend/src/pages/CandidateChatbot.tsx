@@ -6,7 +6,14 @@ import { loadChatbotQuestions } from '../lib/domainApi';
 import type { ChatbotQuestion } from '../types';
 
 type ApplyResponse = { candidateId: string; applicationId: string };
-type PublicJobSummary = { jobId: string; title: string; isAccepting: boolean; candidateCount: number; maxCandidatures: number | null };
+type PublicJobSummary = {
+  jobId: string;
+  title: string;
+  isAccepting?: boolean;
+  accepting?: boolean;
+  candidateCount: number;
+  maxCandidatures: number | null;
+};
 
 type ChatAnswerPayload = {
   questionKey: string;
@@ -66,7 +73,8 @@ export default function CandidateChatbot() {
         setJobTitle(summary.title || 'Offre');
 
         // Vérification du quota avant d'aller plus loin
-        if (!summary.isAccepting) {
+        const isAccepting = summary.isAccepting ?? summary.accepting ?? true;
+        if (!isAccepting) {
           if (summary.maxCandidatures != null) {
             setOfferClosedReason(
               `Cette offre a atteint son quota de ${summary.maxCandidatures} candidature${summary.maxCandidatures > 1 ? 's' : ''}.`,

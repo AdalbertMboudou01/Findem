@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -11,17 +11,34 @@ import {
   ChevronUp,
   Menu,
   X,
-  Archive,
 } from 'lucide-react';
 import { useAuth } from '../../lib/AuthContext';
+import { loadMyInAppNotifications } from '../../lib/domainApi';
 
-const navItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Activite' },
-  { to: '/offers', icon: Briefcase, label: 'Offres' },
-  { to: '/candidates', icon: Users, label: 'Candidats', matchPrefix: '/candidates' },
-  { to: '/chatbot', icon: Bot, label: 'Chatbot' },
-  { to: '/vivier', icon: Archive, label: 'Vivier' },
-  { to: '/entreprise', icon: Building2, label: 'Entreprise' },
+type NavSection = 'pilotage' | 'execution' | 'administration';
+
+type NavItem = {
+  to: string;
+  icon: typeof LayoutDashboard;
+  label: string;
+  matchPrefix?: string;
+  section: NavSection;
+  badge?: 'unread';
+};
+
+const navItems: NavItem[] = [
+  { to: '/', icon: LayoutDashboard, label: 'Activite', section: 'pilotage', badge: 'unread' },
+  { to: '/offers', icon: Briefcase, label: 'Offres', section: 'pilotage' },
+  { to: '/candidates', icon: Users, label: 'Candidats', matchPrefix: '/candidates', section: 'pilotage' },
+  { to: '/chatbot', icon: Bot, label: 'Chatbot', section: 'execution' },
+  { to: '/entreprise', icon: Building2, label: 'Entreprise', section: 'administration' },
+  { to: '/settings', icon: Settings, label: 'Parametres', section: 'administration' },
+];
+
+const navSections: Array<{ key: NavSection; label: string }> = [
+  { key: 'pilotage', label: 'Pilotage' },
+  { key: 'execution', label: 'Execution' },
+  { key: 'administration', label: 'Admin' },
 ];
 
 export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen?: boolean; onMobileClose?: () => void }) {
@@ -29,6 +46,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen?: bo
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
+  const [metrics, setMetrics] = useState({ unread: 0 });
 
   const initials = user?.user_metadata?.full_name
     ? user.user_metadata.full_name
@@ -39,9 +57,45 @@ export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen?: bo
         .slice(0, 2)
     : user?.email?.slice(0, 2).toUpperCase() || 'FD';
 
-  function isActive(item: typeof navItems[number]) {
+  function isActive(item: NavItem) {
     if (item.matchPrefix) return location.pathname.startsWith(item.matchPrefix);
     return location.pathname === item.to;
+  }
+
+  useEffect(() => {
+    let mounted = true;
+
+    const refreshMetrics = async () => {
+      try {
+        const [notifications] = await Promise.all([
+          loadMyInAppNotifications(),
+        ]);
+        if (!mounted) return;
+
+        setMetrics({ unread: notifications.unreadCount || 0 });
+      } catch {
+        if (!mounted) return;
+      }
+    };
+
+    void refreshMetrics();
+    const interval = window.setInterval(() => {
+      void refreshMetrics();
+    }, 45000);
+
+    return () => {
+      mounted = false;
+      window.clearInterval(interval);
+    };
+  }, [location.pathname]);
+
+  function badgeValue(item: NavItem): number {
+    if (item.badge === 'unread') return metrics.unread;
+    return 0;
+  }
+
+  function badgeClass(item: NavItem): string {
+    return 'bg-t-brand-100 text-white';
   }
 
   const sidebarContent = (
@@ -54,39 +108,62 @@ export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen?: bo
       </div>
 
       {/* Nav items */}
-      <nav className="flex-1 w-full flex flex-col items-center pt-0.5">
-        {navItems.map((item) => {
-          const active = isActive(item);
+      <nav className="flex-1 w-full flex flex-col items-center pt-1 overflow-y-auto">
+        {navSections.map((section) => {
+          const items = navItems.filter((item) => item.section === section.key);
+          if (items.length === 0) return null;
+
           return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={onMobileClose}
-              className="group relative w-full flex flex-col items-center py-[6px]"
-            >
-              {active && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 bg-t-brand-100 rounded-r-full" />
-              )}
-              <div
-                className={`w-9 h-9 flex items-center justify-center rounded-fluent transition-colors duration-100 ${
-                  active
-                    ? 'bg-white/15'
-                    : 'hover:bg-white/10'
-                }`}
-              >
-                <item.icon
-                  className={`w-5 h-5 transition-colors duration-100 ${
-                    active ? 'text-t-brand-100' : 'text-[#ADADAD] group-hover:text-[#D6D6D6]'
-                  }`}
-                  strokeWidth={active ? 2 : 1.5}
-                />
+            <div key={section.key} className="w-full mb-1.5">
+              <div className="px-2 py-1">
+                <p className="text-[10px] tracking-wide text-[#8F8F8F] uppercase text-center">
+                  {section.label}
+                </p>
               </div>
-              <span className={`text-caption2 mt-px leading-none transition-colors duration-100 ${
-                active ? 'text-white font-medium' : 'text-[#ADADAD] group-hover:text-[#D6D6D6]'
-              }`}>
-                {item.label}
-              </span>
-            </NavLink>
+              {items.map((item) => {
+                const active = isActive(item);
+                const count = badgeValue(item);
+                return (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    onClick={onMobileClose}
+                    className="group relative w-full flex flex-col items-center py-[6px]"
+                  >
+                    {active && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 bg-t-brand-100 rounded-r-full" />
+                    )}
+                    <div
+                      className={`relative w-9 h-9 flex items-center justify-center rounded-fluent transition-colors duration-100 ${
+                        active
+                          ? 'bg-white/15'
+                          : 'hover:bg-white/10'
+                      }`}
+                    >
+                      <item.icon
+                        className={`w-5 h-5 transition-colors duration-100 ${
+                          active ? 'text-t-brand-100' : 'text-[#ADADAD] group-hover:text-[#D6D6D6]'
+                        }`}
+                        strokeWidth={active ? 2 : 1.5}
+                      />
+                      {count > 0 && (
+                        <span
+                          className={`absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[10px] font-semibold leading-4 text-center ${badgeClass(item)}`}
+                          title={`${count} element${count > 1 ? 's' : ''} en attente`}
+                        >
+                          {count > 99 ? '99+' : count}
+                        </span>
+                      )}
+                    </div>
+                    <span className={`text-caption2 mt-px leading-none transition-colors duration-100 ${
+                      active ? 'text-white font-medium' : 'text-[#ADADAD] group-hover:text-[#D6D6D6]'
+                    }`}>
+                      {item.label}
+                    </span>
+                  </NavLink>
+                );
+              })}
+            </div>
           );
         })}
       </nav>

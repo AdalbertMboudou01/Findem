@@ -7,7 +7,7 @@ export type CandidateStatus =
   | 'vivier'
   | 'en_attente';
 
-export type OfferStatus = 'ouvert' | 'pause' | 'cloture';
+export type OfferStatus = 'ouvert' | 'cloture';
 
 export type OfferExigence = 'standard' | 'selectif' | 'tres_selectif' | 'excellence';
 
@@ -58,6 +58,42 @@ export interface AnalysisFactFeedback {
   decision: AnalysisFactFeedbackDecision;
   corrected_finding: string;
   reviewer_comment: string;
+  created_at: string;
+}
+
+export interface ApplicationComment {
+  id: string;
+  application_id: string;
+  company_id: string;
+  author_user_id: string | null;
+  author_recruiter_id: string | null;
+  author_name: string;
+  author_email: string | null;
+  content: string;
+  created_at: string;
+  updated_at: string | null;
+}
+
+export interface ApplicationActivity {
+  id: string;
+  application_id: string;
+  company_id: string;
+  actor_user_id: string | null;
+  actor_recruiter_id: string | null;
+  event_type: string;
+  title: string;
+  description: string;
+  created_at: string;
+}
+
+export interface InAppNotification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  read: boolean;
+  reference_type: string;
+  reference_id: string | null;
   created_at: string;
 }
 

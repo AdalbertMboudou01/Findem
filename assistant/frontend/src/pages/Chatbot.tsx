@@ -19,6 +19,8 @@ import {
   Upload,
   Paperclip,
   CheckCircle2,
+  ExternalLink,
+  Sparkles,
 } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import { loadChatbotQuestions, loadRecruitmentData, saveChatbotQuestions } from '../lib/domainApi';
@@ -38,10 +40,12 @@ type View = 'config' | 'preview' | 'stats';
 export default function Chatbot() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryJobId = searchParams.get('jobId') || '';
+  const fromOfferSetup = searchParams.get('from') === 'offer-setup';
   const [offers, setOffers] = useState<Offer[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [dataError, setDataError] = useState('');
+  const [accessMessage, setAccessMessage] = useState('');
   const [selectedOfferId, setSelectedOfferId] = useState('');
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [view, setView] = useState<View>('config');
@@ -52,10 +56,21 @@ export default function Chatbot() {
       setLoading(true);
       try {
         const data = await loadRecruitmentData();
-        const activeOffers = data.offers.filter((o) => o.status !== 'cloture');
-        setOffers(activeOffers);
+        const configurableOffers = data.offers.filter((o) => o.status === 'ouvert');
+        setOffers(configurableOffers);
         setCandidates(data.candidates);
         setDataError('');
+
+        if (queryJobId) {
+          const blockedOffer = data.offers.find((o) => o.id === queryJobId && o.status !== 'ouvert');
+          if (blockedOffer) {
+            setAccessMessage('Cette offre est clôturée. Impossible de configurer le questionnaire.');
+          } else {
+            setAccessMessage('');
+          }
+        } else {
+          setAccessMessage('');
+        }
       } catch (err) {
         setDataError(err instanceof Error ? err.message : 'Impossible de charger les donnees du chatbot.');
       } finally {
@@ -64,7 +79,7 @@ export default function Chatbot() {
     }
 
     refreshData();
-  }, []);
+  }, [queryJobId]);
 
   useEffect(() => {
     if (queryJobId && offers.some((o) => o.id === queryJobId)) {
@@ -82,11 +97,10 @@ export default function Chatbot() {
   const offer = offers.find((o) => o.id === selectedOfferId);
 
   const [questions, setQuestions] = useState<ChatbotQuestion[]>([]);
-  const [welcomeMsg, setWelcomeMsg] = useState('');
-  const [closingMsg, setClosingMsg] = useState('');
   const [savingQuestions, setSavingQuestions] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [saveError, setSaveError] = useState('');
+  const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
     async function refreshQuestions() {
@@ -97,6 +111,9 @@ export default function Chatbot() {
 
       const loaded = await loadChatbotQuestions(selectedOfferId);
       setQuestions(loaded);
+      setIsDirty(false);
+      setSaveMessage('');
+      setSaveError('');
     }
 
     refreshQuestions();
@@ -113,20 +130,42 @@ export default function Chatbot() {
   function addQuestion() {
     const newQ: ChatbotQuestion = { id: `q-${Date.now()}`, text: '', type: 'open', required: true, order: questions.length + 1 };
     setQuestions([...questions, newQ]);
+    setIsDirty(true);
+    setSaveMessage('');
   }
 
   function addFromTemplate(tpl: typeof questionTemplates[number]) {
     const newQ: ChatbotQuestion = { id: `q-${Date.now()}`, text: tpl.text, type: tpl.type, required: true, order: questions.length + 1 };
     setQuestions([...questions, newQ]);
     setShowTemplates(false);
+    setIsDirty(true);
+    setSaveMessage('');
+  }
+
+  function initStandardTemplate() {
+    const seeded = questionTemplates.map((tpl, i) => ({
+      id: `q-${Date.now()}-${i}`,
+      text: tpl.text,
+      type: tpl.type,
+      required: true,
+      order: i + 1,
+    } as ChatbotQuestion));
+    setQuestions(seeded);
+    setIsDirty(true);
+    setSaveMessage('Pack standard ajoute. Pensez a enregistrer.');
+    setSaveError('');
   }
 
   function updateQuestion(id: string, field: keyof ChatbotQuestion, value: string | boolean) {
     setQuestions(questions.map((q) => q.id === id ? { ...q, [field]: value } : q));
+    setIsDirty(true);
+    setSaveMessage('');
   }
 
   function removeQuestion(id: string) {
     setQuestions(questions.filter((q) => q.id !== id));
+    setIsDirty(true);
+    setSaveMessage('');
   }
 
   async function handleSaveQuestions() {
@@ -137,6 +176,7 @@ export default function Chatbot() {
     try {
       const saved = await saveChatbotQuestions(selectedOfferId, questions);
       setQuestions(saved);
+      setIsDirty(false);
       setSaveMessage('Questions enregistrees.');
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Impossible d\'enregistrer les questions.');
@@ -151,6 +191,7 @@ export default function Chatbot() {
     setSaveMessage('');
     const loaded = await loadChatbotQuestions(selectedOfferId);
     setQuestions(loaded);
+    setIsDirty(false);
   }
 
   const chatbotUrl = offer ? `${window.location.origin}/apply/${offer.id}` : '';
@@ -161,6 +202,11 @@ export default function Chatbot() {
     setTimeout(() => setCopiedUrl(false), 2000);
   }
 
+  function openCandidateLink() {
+    if (!chatbotUrl) return;
+    window.open(chatbotUrl, '_blank', 'noopener,noreferrer');
+  }
+
   const viewTabs: { key: View; label: string; icon: typeof Settings }[] = [
     { key: 'config', label: 'Configuration', icon: Settings },
     { key: 'preview', label: 'Apercu', icon: Eye },
@@ -169,10 +215,15 @@ export default function Chatbot() {
 
   return (
     <>
-      <TopBar title="Chatbot" />
+      <TopBar title="Chatbot" subtitle="Conception des parcours candidats par offre" />
       {dataError && (
         <div className="mx-4 sm:mx-6 mt-3 rounded-fluent border border-t-danger bg-t-danger-bg px-3 py-2 text-caption1 text-t-danger">
           {dataError}
+        </div>
+      )}
+      {accessMessage && (
+        <div className="mx-4 sm:mx-6 mt-3 rounded-fluent border border-t-warning bg-t-warning-bg px-3 py-2 text-caption1 text-t-warning">
+          {accessMessage}
         </div>
       )}
       {loading && (
@@ -244,7 +295,15 @@ export default function Chatbot() {
 
               <div className="flex-1 overflow-y-auto bg-t-bg3">
                 {view === 'config' && (
-                  <div className="max-w-[700px] mx-auto px-3 sm:px-6 py-5 space-y-4">
+                  <div className="max-w-[1080px] mx-auto px-3 sm:px-6 py-5 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-4 items-start">
+                    <div className="space-y-4">
+                    {fromOfferSetup && (
+                      <div className="bg-t-success-bg border border-t-success rounded-fluent px-4 py-3">
+                        <p className="text-caption1 font-semibold text-t-success">Etape 2: configurez les questions du chatbot</p>
+                        <p className="text-caption1 text-t-fg2 mt-1">Votre offre est creee. Ajoutez vos questions puis cliquez sur Enregistrer les questions.</p>
+                      </div>
+                    )}
+
                     {/* URL */}
                     <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
                       <h3 className="inline-flex items-center gap-2 text-caption1 font-semibold text-t-fg2 uppercase tracking-wider mb-3">
@@ -257,27 +316,6 @@ export default function Chatbot() {
                         </button>
                       </div>
                       <p className="text-caption2 text-t-fg3 mt-2">Integrez ce lien dans vos annonces. Chaque candidat accede automatiquement au chatbot lie a cette offre.</p>
-                    </div>
-
-                    {/* Messages */}
-                    <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
-                      <h3 className="inline-flex items-center gap-2 text-caption1 font-semibold text-t-fg2 uppercase tracking-wider mb-3">
-                        <MessageSquare className="w-3.5 h-3.5 text-t-fg3" />Messages
-                      </h3>
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-caption1 font-semibold text-t-fg2 mb-1">Message d'accueil</label>
-                          <textarea rows={2} value={welcomeMsg} onChange={(e) => setWelcomeMsg(e.target.value)}
-                            className="w-full px-3 py-2 text-body1 bg-t-bg1 border border-t-stroke2 rounded-fluent outline-none focus:border-t-stroke-brand transition-colors resize-none placeholder:text-t-fg-disabled"
-                            placeholder="Message affiche au debut..." />
-                        </div>
-                        <div>
-                          <label className="block text-caption1 font-semibold text-t-fg2 mb-1">Message de fin</label>
-                          <textarea rows={2} value={closingMsg} onChange={(e) => setClosingMsg(e.target.value)}
-                            className="w-full px-3 py-2 text-body1 bg-t-bg1 border border-t-stroke2 rounded-fluent outline-none focus:border-t-stroke-brand transition-colors resize-none placeholder:text-t-fg-disabled"
-                            placeholder="Message apres la derniere question..." />
-                        </div>
-                      </div>
                     </div>
 
                     {/* Questions */}
@@ -309,6 +347,18 @@ export default function Chatbot() {
                       </div>
 
                       <div className="space-y-2">
+                        {questions.length === 0 && (
+                          <div className="rounded-fluent border border-dashed border-t-stroke2 bg-t-bg3 px-3 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <p className="text-caption1 text-t-fg2">Demarrage rapide: initialiser un pack de questions standard.</p>
+                            <button
+                              onClick={initStandardTemplate}
+                              className="h-7 px-3 text-caption1 font-semibold text-t-fg-brand hover:bg-t-brand-160 rounded-fluent transition-colors"
+                            >
+                              Initialiser le pack standard
+                            </button>
+                          </div>
+                        )}
+
                         {questions.map((q, i) => (
                           <div key={q.id} className="flex items-start gap-2 bg-t-bg2 rounded-fluent px-3 py-3 border border-t-stroke3">
                             <GripVertical className="w-4 h-4 text-t-fg-disabled mt-1.5 shrink-0 cursor-grab" />
@@ -371,6 +421,29 @@ export default function Chatbot() {
                         {saveError}
                       </div>
                     )}
+                    </div>
+
+                    <aside className="lg:sticky lg:top-4 space-y-3">
+                      <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-4 py-4">
+                        <h3 className="inline-flex items-center gap-2 text-caption1 font-semibold text-t-fg2 uppercase tracking-wider mb-3">
+                          <ExternalLink className="w-3.5 h-3.5 text-t-fg3" />Actions rapides
+                        </h3>
+                        <div className="space-y-2">
+                          <button
+                            onClick={openCandidateLink}
+                            className="w-full h-8 px-3 text-caption1 font-semibold text-t-fg2 border border-t-stroke2 rounded-fluent hover:bg-t-bg1-hover transition-colors"
+                          >
+                            Tester le parcours candidat
+                          </button>
+                          <button
+                            onClick={() => setView('stats')}
+                            className="w-full h-8 px-3 text-caption1 font-semibold text-t-fg2 border border-t-stroke2 rounded-fluent hover:bg-t-bg1-hover transition-colors"
+                          >
+                            Ouvrir les statistiques
+                          </button>
+                        </div>
+                      </div>
+                    </aside>
                   </div>
                 )}
 
@@ -391,18 +464,6 @@ export default function Chatbot() {
                       </div>
                       {/* Messages */}
                       <div className="p-4 space-y-3 min-h-[400px] max-h-[520px] overflow-y-auto bg-t-bg2">
-                        {/* Welcome */}
-                        {welcomeMsg && (
-                          <div className="flex items-start gap-2">
-                            <div className="w-6 h-6 rounded-full bg-t-brand-160 flex items-center justify-center shrink-0">
-                              <Bot className="w-3 h-3 text-t-brand-80" />
-                            </div>
-                            <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent rounded-tl-none px-3 py-2 max-w-[80%] shadow-sm">
-                              <p className="text-body1 text-t-fg1">{welcomeMsg}</p>
-                              <span className="text-caption2 text-t-fg-disabled block mt-1">14:00</span>
-                            </div>
-                          </div>
-                        )}
                         {/* Questions with simulated answers */}
                         {questions.map((q, i) => {
                           const sampleAnswers: Record<string, string> = {
@@ -476,15 +537,13 @@ export default function Chatbot() {
                             </div>
                           );
                         })}
-                        {/* Closing */}
-                        {closingMsg && (
+                        {questions.length > 0 && (
                           <div className="flex items-start gap-2">
                             <div className="w-6 h-6 rounded-full bg-t-brand-160 flex items-center justify-center shrink-0">
                               <Bot className="w-3 h-3 text-t-brand-80" />
                             </div>
                             <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent rounded-tl-none px-3 py-2 max-w-[80%] shadow-sm">
-                              <p className="text-body1 text-t-fg1">{closingMsg}</p>
-                              <div className="flex items-center gap-1.5 mt-2">
+                              <div className="flex items-center gap-1.5 mt-0.5">
                                 <CheckCircle2 className="w-3.5 h-3.5 text-t-success" />
                                 <span className="text-caption2 text-t-success font-medium">Questionnaire termine</span>
                               </div>

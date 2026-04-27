@@ -19,9 +19,16 @@ public class ChatMessage {
     @JoinColumn(name = "candidate_id")
     private Candidate candidate;
 
+    @Column(length = 120)
     private String questionKey;
+
+    @Column(columnDefinition = "TEXT")
     private String questionText;
+
+    @Column(columnDefinition = "TEXT")
     private String answer;
+
+    @Column(length = 32)
     private String messageType; // QUESTION, ANSWER
     private Date createdAt;
 

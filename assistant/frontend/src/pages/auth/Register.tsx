@@ -19,8 +19,6 @@ export default function Register() {
   const [fullName, setFullName] = useState('');
   const [company, setCompany] = useState('');
   const [sector, setSector] = useState('Technologie');
-  const [size, setSize] = useState('PME');
-  const [website, setWebsite] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
@@ -50,8 +48,8 @@ export default function Register() {
         fullName,
         companyName: company,
         sector,
-        size,
-        website,
+        size: 'PME', // Valeur par défaut
+        website: '', // Champ site web supprimé
         plan: 'starter',
         email,
         password,
@@ -96,7 +94,7 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen bg-t-bg3 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-t-bg3 flex items-start justify-center px-4 py-6 overflow-y-auto">
       <div className="w-full max-w-[400px]">
         <div className="text-center mb-8">
           <div className="w-10 h-10 rounded-fluent bg-t-brand-80 flex items-center justify-center mx-auto mb-4">
@@ -154,30 +152,6 @@ export default function Register() {
               </select>
             </div>
 
-            <div>
-              <label className="block text-caption1 font-semibold text-t-fg2 mb-1">Taille</label>
-              <select
-                value={size}
-                onChange={(e) => setSize(e.target.value)}
-                className="w-full h-9 px-3 text-body1 bg-t-bg1 border border-t-stroke2 rounded-fluent outline-none focus:border-t-stroke-brand transition-colors"
-              >
-                <option value="Startup">Startup</option>
-                <option value="PME">PME</option>
-                <option value="ETI">ETI</option>
-                <option value="Grande Entreprise">Grande Entreprise</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-caption1 font-semibold text-t-fg2 mb-1">Site web (optionnel)</label>
-              <input
-                type="text"
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-                placeholder="https://entreprise.com"
-                className="w-full h-9 px-3 text-body1 bg-t-bg1 border border-t-stroke2 rounded-fluent outline-none focus:border-t-stroke-brand transition-colors placeholder:text-t-fg-disabled"
-              />
-            </div>
 
             <div>
               <label className="block text-caption1 font-semibold text-t-fg2 mb-1">Email professionnel</label>

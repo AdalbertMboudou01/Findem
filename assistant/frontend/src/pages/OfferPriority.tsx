@@ -172,7 +172,7 @@ export default function OfferPriority() {
   if (loading) {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
-        <TopBar title="Priorisation" />
+        <TopBar title="Priorisation" subtitle="Vue pipeline et actions de tri" />
         <div className="flex-1 flex items-center justify-center">
           <span className="text-caption1 text-t-fg3">Chargement…</span>
         </div>
@@ -184,6 +184,7 @@ export default function OfferPriority() {
     <div className="flex-1 flex flex-col overflow-hidden">
       <TopBar
         title={offer ? `Priorisation — ${offer.title}` : 'Priorisation'}
+        subtitle="Arbitrage des candidatures par categorie"
         actions={
           <div className="flex items-center gap-2">
             <button

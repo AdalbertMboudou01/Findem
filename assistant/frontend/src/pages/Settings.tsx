@@ -54,7 +54,7 @@ export default function Settings() {
 
   return (
     <>
-      <TopBar title="Parametres" />
+      <TopBar title="Parametres" subtitle="Preferences utilisateur et mode test" />
       <div className="flex-1 overflow-y-auto bg-t-bg3 px-4 py-6">
         <div className="max-w-[600px] mx-auto space-y-6">
 

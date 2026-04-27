@@ -11,14 +11,13 @@ const statusConfig: Record<CandidateStatus, { label: string; bg: string; text: s
   retenu_entretien: { label: 'Retenu', bg: 'bg-t-success-bg', text: 'text-t-success' },
   a_revoir_manuellement: { label: 'A revoir', bg: 'bg-t-warning-bg', text: 'text-t-warning' },
   non_retenu: { label: 'Non retenu', bg: 'bg-t-danger-bg', text: 'text-t-danger' },
-  vivier: { label: 'Vivier', bg: 'bg-t-brand-160', text: 'text-t-brand-80' },
+  vivier: { label: 'A revoir', bg: 'bg-t-warning-bg', text: 'text-t-warning' },
   en_attente: { label: 'En attente', bg: 'bg-t-bg4', text: 'text-t-fg3' },
 };
 
 const offerStatusConfig: Record<OfferStatus, { label: string; bg: string; text: string }> = {
   ouvert: { label: 'Ouvert', bg: 'bg-t-success-bg', text: 'text-t-success' },
-  pause: { label: 'Pause', bg: 'bg-t-warning-bg', text: 'text-t-warning' },
-  cloture: { label: 'Cloture', bg: 'bg-t-danger-bg', text: 'text-t-danger' },
+  cloture: { label: 'Clôturée', bg: 'bg-t-danger-bg', text: 'text-t-danger' },
 };
 
 export function TriBadge({ category }: { category: TriCategory }) {

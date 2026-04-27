@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.memoire.assistant.dto.AnalysisFactDTO;
 import com.memoire.assistant.model.ChatAnswer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -21,6 +23,8 @@ import java.util.Map;
 
 @Service
 public class SemanticExtractionService {
+
+    private static final Logger log = LoggerFactory.getLogger(SemanticExtractionService.class);
 
     @Autowired
     private RestTemplate restTemplate;
@@ -41,7 +45,16 @@ public class SemanticExtractionService {
     private String model;
 
     public List<AnalysisFactDTO> extractFacts(List<ChatAnswer> answers) {
-        if (!enabled || apiKey == null || apiKey.isBlank() || answers == null || answers.isEmpty()) {
+        if (!enabled) {
+            log.warn("Semantic extractor disabled by configuration (app.semantic-extractor.enabled=false)");
+            return List.of();
+        }
+        if (apiKey == null || apiKey.isBlank()) {
+            log.warn("Semantic extractor API key missing; cannot call LLM");
+            return List.of();
+        }
+        if (answers == null || answers.isEmpty()) {
+            log.warn("Semantic extractor called with no answers");
             return List.of();
         }
 
@@ -68,16 +81,23 @@ public class SemanticExtractionService {
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                log.warn("Semantic extractor HTTP failure status={} bodyPresent={}", response.getStatusCode(), response.getBody() != null);
                 return List.of();
             }
 
             String content = extractAssistantContent(response.getBody());
             if (content == null || content.isBlank()) {
+                log.warn("Semantic extractor returned empty content from LLM response");
                 return List.of();
             }
 
-            return parseFacts(content);
+            List<AnalysisFactDTO> facts = parseFacts(content);
+            if (facts.isEmpty()) {
+                log.warn("Semantic extractor parsed zero valid facts from LLM payload");
+            }
+            return facts;
         } catch (Exception e) {
+            log.warn("Semantic extractor call failed: {}", e.getMessage());
             return List.of();
         }
     }
@@ -159,6 +179,7 @@ public class SemanticExtractionService {
             }
             return facts;
         } catch (Exception e) {
+            log.warn("Semantic extractor JSON parsing failed: {}", e.getMessage());
             return List.of();
         }
     }

@@ -72,7 +72,7 @@ export default function CompanyOnboarding() {
 
   return (
     <>
-      <TopBar title="Setup entreprise" />
+      <TopBar title="Setup entreprise" subtitle="Configuration initiale de votre espace" />
       <div className="flex-1 overflow-y-auto bg-t-bg3 px-4 py-6">
         <div className="max-w-[640px] mx-auto">
           <div className="mb-6">

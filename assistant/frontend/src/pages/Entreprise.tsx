@@ -1,14 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   CalendarDays,
   MessageSquare,
   Megaphone,
-  Archive,
   Users,
-  Mail,
-  Clock,
-  Briefcase,
-  AlertTriangle,
   UserPlus,
   ShieldCheck,
   Loader2,
@@ -16,7 +11,6 @@ import {
   Check,
 } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
-import { TriBadge } from '../components/ui/Badge';
 import {
   inviteRecruiter,
   loadCompanyInvitations,
@@ -26,14 +20,13 @@ import {
   type CompanyRecruiterMember,
 } from '../lib/domainApi';
 import { useAuth } from '../lib/AuthContext';
-import type { Candidate, Offer } from '../types';
+import type { Offer } from '../types';
 
-type Tab = 'entretiens' | 'discussions' | 'vivier' | 'annonces' | 'equipe';
+type Tab = 'entretiens' | 'discussions' | 'annonces' | 'equipe';
 
 const tabConfig: { key: Tab; label: string; icon: typeof CalendarDays }[] = [
   { key: 'entretiens', label: 'Entretiens', icon: CalendarDays },
   { key: 'discussions', label: 'Discussions', icon: MessageSquare },
-  { key: 'vivier', label: 'Vivier', icon: Archive },
   { key: 'annonces', label: 'Annonces', icon: Megaphone },
   { key: 'equipe', label: 'Equipe', icon: Users },
 ];
@@ -42,7 +35,6 @@ export default function Entreprise() {
   const { user } = useAuth();
   const isAdmin = (user?.role || '').toUpperCase() === 'ADMIN';
   const [activeTab, setActiveTab] = useState<Tab>('entretiens');
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [members, setMembers] = useState<CompanyRecruiterMember[]>([]);
   const [invitations, setInvitations] = useState<CompanyInvitation[]>([]);
@@ -74,7 +66,6 @@ export default function Entreprise() {
         }
 
         if (!mounted) return;
-        setCandidates(data.candidates);
         setOffers(data.offers);
         setMembers(recruiterMembers);
         setInvitations(pendingInvitations);
@@ -124,27 +115,16 @@ export default function Entreprise() {
     setTimeout(() => setCopiedTokenId(null), 1800);
   }
 
-  const vivierCandidates = useMemo(
-    () => candidates.filter((c) => c.status === 'vivier'),
-    [candidates],
-  );
-
-  const potentialVivier = useMemo(
-    () => candidates.filter((c) => c.tri_category === 'a_revoir' && c.status !== 'vivier'),
-    [candidates],
-  );
-
   const counts = {
     entretiens: 0,
     discussions: 0,
-    vivier: vivierCandidates.length,
     annonces: 0,
     equipe: members.length,
   };
 
   return (
     <>
-      <TopBar title="Entreprise" />
+      <TopBar title="Entreprise" subtitle="Espace equipe et operations" />
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         <div className="md:hidden flex items-center border-b border-t-stroke2 bg-t-bg2 px-2 shrink-0 overflow-x-auto">
           {tabConfig.map((tab) => (
@@ -191,10 +171,6 @@ export default function Entreprise() {
           </div>
           <div className="px-4 py-3 border-t border-t-stroke3 space-y-2">
             <div className="flex items-center justify-between text-caption2">
-              <span className="text-t-fg3">Profils en vivier</span>
-              <span className="text-t-fg1 font-medium">{counts.vivier}</span>
-            </div>
-            <div className="flex items-center justify-between text-caption2">
               <span className="text-t-fg3">Offres ouvertes</span>
               <span className="text-t-fg1 font-medium">{offers.filter((o) => o.status === 'ouvert').length}</span>
             </div>
@@ -236,62 +212,6 @@ export default function Entreprise() {
                 title="Annonces"
                 message="Aucune donnee reelle d'annonces n'est encore branchee sur cet ecran."
               />
-            )}
-
-            {!loading && !error && activeTab === 'vivier' && (
-              <>
-                <div>
-                  <h2 className="text-subtitle2 font-semibold text-t-fg1">Vivier de talents</h2>
-                  <p className="text-caption1 text-t-fg3 mt-0.5">Profils reels conserves pour des opportunites futures</p>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <StatCard label="Dans le vivier" value={vivierCandidates.length} icon={Archive} />
-                  <StatCard label="Transferables" value={potentialVivier.length} icon={Users} />
-                  <StatCard label="Offres ouvertes" value={offers.filter((o) => o.status === 'ouvert').length} icon={Briefcase} />
-                </div>
-
-                {vivierCandidates.length === 0 ? (
-                  <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-12 text-center">
-                    <Archive className="w-10 h-10 text-t-fg-disabled mx-auto mb-3" strokeWidth={1} />
-                    <p className="text-body1 text-t-fg2 mb-1">Le vivier est vide</p>
-                    <p className="text-caption1 text-t-fg3">Placez des candidats dans le vivier depuis leur fiche candidat.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {vivierCandidates.map((c) => {
-                      const linkedOffer = offers.find((o) => o.id === c.offer_id);
-                      return (
-                        <div key={c.id} className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
-                          <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-full bg-t-brand-160 flex items-center justify-center text-caption1 font-semibold text-t-brand-80 shrink-0">
-                              {c.first_name[0]}{c.last_name[0]}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="text-body1 font-semibold text-t-fg1">{c.first_name} {c.last_name}</span>
-                                <TriBadge category={c.tri_category} />
-                              </div>
-                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-caption1 text-t-fg3">
-                                <span className="inline-flex items-center gap-1"><Mail className="w-3 h-3" />{c.email}</span>
-                                <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />{c.disponibilite}</span>
-                                {linkedOffer && <span className="inline-flex items-center gap-1"><Briefcase className="w-3 h-3" />{linkedOffer.title}</span>}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {potentialVivier.length > 0 && (
-                  <div className="bg-t-warning-bg border border-t-stroke2 rounded-fluent px-4 py-3 text-caption1 text-t-fg2 inline-flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-t-warning" />
-                    {potentialVivier.length} profil(s) "A revoir" peuvent aussi etre bascules dans le vivier.
-                  </div>
-                )}
-              </>
             )}
 
             {!loading && !error && activeTab === 'equipe' && (

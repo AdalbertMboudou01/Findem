@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -24,7 +25,7 @@ public class ChatMessageController {
     
     @PostMapping("/answer")
     @Operation(summary = "Sauvegarder une réponse du chatbot", description = "Permet de sauvegarder la réponse d'un candidat à une question du chatbot")
-    public ResponseEntity<ChatAnswerResponse> saveAnswer(@Valid @RequestBody ChatAnswerDTO answerDTO) {
+    public ResponseEntity<?> saveAnswer(@Valid @RequestBody ChatAnswerDTO answerDTO) {
         try {
             ChatMessage savedMessage = chatMessageService.saveAnswer(answerDTO);
             ChatAnswerResponse response = new ChatAnswerResponse();
@@ -39,7 +40,10 @@ public class ChatMessageController {
 
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().build();
+            String message = e.getMessage() == null || e.getMessage().isBlank()
+                ? "Reponse invalide ou trop longue"
+                : e.getMessage();
+            return ResponseEntity.badRequest().body(Map.of("message", message));
         }
     }
     

@@ -16,7 +16,6 @@ import Entreprise from './pages/Entreprise';
 import CandidateChatbot from './pages/CandidateChatbot';
 import OfferSettings from './pages/OfferSettings';
 import OfferPriority from './pages/OfferPriority';
-import Vivier from './pages/Vivier';
 import CompanyOnboarding from './pages/CompanyOnboarding';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -64,7 +63,6 @@ function AppRoutes() {
         <Route path="/offers" element={<Offers />} />
         <Route path="/offers/:offerId/settings" element={<OfferSettings />} />
         <Route path="/offers/:offerId/priority" element={<OfferPriority />} />
-        <Route path="/vivier" element={<Vivier />} />
         <Route path="/candidates" element={<Candidates />}>
           <Route index element={<CandidateEmpty />} />
           <Route path=":id" element={<CandidateDetail />} />

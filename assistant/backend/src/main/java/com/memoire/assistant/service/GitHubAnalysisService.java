@@ -2,7 +2,10 @@ package com.memoire.assistant.service;
 
 import com.memoire.assistant.dto.GithubAnalysisDTO;
 import com.memoire.assistant.dto.GithubSkillsAnalysisDTO;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.HttpHeaders;
@@ -16,9 +19,14 @@ import java.util.regex.Matcher;
 
 @Service
 public class GitHubAnalysisService {
+
+    private static final Logger log = LoggerFactory.getLogger(GitHubAnalysisService.class);
     
     @Autowired
     private RestTemplate restTemplate;
+
+    @Value("${app.github.api-token:}")
+    private String githubApiToken;
     
     // Configuration pour le rate limiting et retry
     private static final int MAX_RETRIES = 3;
@@ -151,61 +159,74 @@ public class GitHubAnalysisService {
         for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
                 String url = GITHUB_API_URL + "/users/" + username;
-                
-                // Utiliser le RestTemplate par défaut (configuré globalement)
-                // Note: Pour une configuration avancée, utiliser RestTemplateBuilder dans une @Bean séparée
-                
-                // Ajouter un header User-Agent pour éviter les erreurs 403
-                HttpHeaders headers = new HttpHeaders();
-                headers.set("User-Agent", "Memoire-Assistant/1.0");
-                headers.set("Accept", "application/vnd.github.v3+json");
-                
-                HttpEntity<String> entity = new HttpEntity<>(headers);
-                
-                try {
-                    ResponseEntity<Map> response = restTemplate.exchange(
-                        url, HttpMethod.GET, entity, Map.class);
-                    
-                    if (response.getStatusCode().is2xxSuccessful()) {
-                        return response.getBody();
-                    } else {
-                        // Loguer l'erreur
-                        System.err.println("Erreur API GitHub: " + response.getStatusCode() + " - " + username);
-                    }
-                } catch (Exception e) {
-                    System.err.println("Erreur lors de l'appel API GitHub: " + e.getMessage());
+                HttpEntity<String> entity = new HttpEntity<>(buildGitHubHeaders());
+                ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
+
+                if (response.getStatusCode().is2xxSuccessful()) {
+                    return response.getBody();
                 }
+
+                log.warn("GitHub profile API non-2xx for user={} attempt={}/{} status={}", username, attempt, MAX_RETRIES, response.getStatusCode());
             } catch (Exception e) {
-                // Gérer l'exception
-            } finally {
-                // Nettoyage des ressources si nécessaire
-                // Note: Le finally s'exécute même en cas d'exception
+                log.warn("GitHub profile API error for user={} attempt={}/{}: {}", username, attempt, MAX_RETRIES, e.getMessage());
             }
+
+            sleepBeforeRetry(attempt);
         }
+        log.warn("GitHub profile API failed after retries for user={}", username);
         return null; // Retourner null si toutes les tentatives échouent
     }
     
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> getUserRepositories(String username) {
-        try {
-            String url = GITHUB_API_URL + "/users/" + username + "/repos";
-            
-            // Ajouter un header User-Agent pour éviter les erreurs 403
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("User-Agent", "Memoire-Assistant/1.0");
-            
-            HttpEntity<String> entity = new HttpEntity<>(headers);
-            
-            ResponseEntity<Map[]> response = restTemplate.exchange(
-                url, HttpMethod.GET, entity, Map[].class);
-            
-            if (response.getStatusCode().is2xxSuccessful()) {
-                return Arrays.asList(response.getBody());
-            } else {
-                return new ArrayList<>();
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                String url = GITHUB_API_URL + "/users/" + username + "/repos?per_page=100&sort=updated";
+                HttpEntity<String> entity = new HttpEntity<>(buildGitHubHeaders());
+
+                ResponseEntity<Map[]> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map[].class);
+                if (!response.getStatusCode().is2xxSuccessful()) {
+                    log.warn("GitHub repos API non-2xx for user={} attempt={}/{} status={}", username, attempt, MAX_RETRIES, response.getStatusCode());
+                    sleepBeforeRetry(attempt);
+                    continue;
+                }
+
+                Map[] body = response.getBody();
+                if (body == null) {
+                    log.warn("GitHub repos API returned empty body for user={} attempt={}/{}", username, attempt, MAX_RETRIES);
+                    sleepBeforeRetry(attempt);
+                    continue;
+                }
+
+                return Arrays.asList(body);
+            } catch (Exception e) {
+                log.warn("GitHub repos API error for user={} attempt={}/{}: {}", username, attempt, MAX_RETRIES, e.getMessage());
+                sleepBeforeRetry(attempt);
             }
-        } catch (Exception e) {
-            return new ArrayList<>();
+        }
+
+        log.warn("GitHub repos API failed after retries for user={}", username);
+        return new ArrayList<>();
+    }
+
+    private HttpHeaders buildGitHubHeaders() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("User-Agent", "Memoire-Assistant/1.0");
+        headers.set("Accept", "application/vnd.github+json");
+        if (githubApiToken != null && !githubApiToken.isBlank()) {
+            headers.setBearerAuth(githubApiToken.trim());
+        }
+        return headers;
+    }
+
+    private void sleepBeforeRetry(int attempt) {
+        if (attempt >= MAX_RETRIES) {
+            return;
+        }
+        try {
+            Thread.sleep(RETRY_DELAY_MS * attempt);
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
         }
     }
     

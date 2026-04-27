@@ -7,6 +7,7 @@ import com.memoire.assistant.model.Candidate;
 import com.memoire.assistant.repository.ChatMessageRepository;
 import com.memoire.assistant.repository.ApplicationRepository;
 import com.memoire.assistant.repository.CandidateRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -27,6 +28,16 @@ public class ChatMessageService {
     private CandidateRepository candidateRepository;
     
     public ChatMessage saveAnswer(ChatAnswerDTO answerDTO) {
+        if (answerDTO.getQuestionKey() == null || answerDTO.getQuestionKey().isBlank()) {
+            throw new IllegalArgumentException("La cle de la question est obligatoire");
+        }
+        if (answerDTO.getQuestionText() == null || answerDTO.getQuestionText().isBlank()) {
+            throw new IllegalArgumentException("Le texte de la question est obligatoire");
+        }
+        if (answerDTO.getAnswer() == null || answerDTO.getAnswer().isBlank()) {
+            throw new IllegalArgumentException("La reponse est obligatoire");
+        }
+
         // Vérifier que l'application et le candidat existent
         Application application = null;
         if (answerDTO.getApplicationId() != null) {
@@ -42,15 +53,35 @@ public class ChatMessageService {
         
         // Créer et sauvegarder le message
         ChatMessage message = new ChatMessage(
-            application, 
-            candidate, 
-            answerDTO.getQuestionKey(), 
-            answerDTO.getQuestionText(), 
-            answerDTO.getAnswer(), 
+            application,
+            candidate,
+            answerDTO.getQuestionKey().trim(),
+            answerDTO.getQuestionText().trim(),
+            answerDTO.getAnswer().trim(),
             "ANSWER"
         );
-        
-        return chatMessageRepository.save(message);
+
+        try {
+            return chatMessageRepository.save(message);
+        } catch (DataIntegrityViolationException ex) {
+            String dbMessage = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : "";
+            if (dbMessage != null && dbMessage.contains("character varying(255)")) {
+                message.setQuestionText(truncate(message.getQuestionText(), 255));
+                message.setAnswer(truncate(message.getAnswer(), 255));
+                return chatMessageRepository.save(message);
+            }
+            throw ex;
+        }
+    }
+
+    private String truncate(String value, int maxLen) {
+        if (value == null) {
+            return null;
+        }
+        if (value.length() <= maxLen) {
+            return value;
+        }
+        return value.substring(0, maxLen);
     }
     
     public List<ChatMessage> getMessagesByApplication(UUID applicationId) {

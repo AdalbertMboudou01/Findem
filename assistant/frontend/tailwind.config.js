@@ -60,7 +60,7 @@ export default {
         },
       },
       spacing: {
-        'rail': '68px',
+        'rail': '76px',
         'panel': '320px',
         'header': '48px',
       },

@@ -2,6 +2,7 @@ package com.memoire.assistant.controller;
 
 import com.memoire.assistant.model.Application;
 import com.memoire.assistant.model.Candidate;
+import com.memoire.assistant.service.ApplicationActivityService;
 import com.memoire.assistant.service.ApplicationService;
 import com.memoire.assistant.dto.ApplicationCreateRequest;
 import com.memoire.assistant.model.Job;
@@ -25,6 +26,8 @@ import java.util.UUID;
 public class ApplicationController {
     @Autowired
     private ApplicationService applicationService;
+    @Autowired
+    private ApplicationActivityService applicationActivityService;
     @Autowired
     private JobRepository jobRepository;
     @Autowired
@@ -57,7 +60,9 @@ public class ApplicationController {
         ApplicationStatus status = new ApplicationStatus();
         status.setStatusId(request.getStatusId());
         application.setStatus(status);
-        return applicationService.saveApplication(application);
+        Application savedApplication = applicationService.saveApplication(application);
+        applicationActivityService.logApplicationCreated(savedApplication);
+        return savedApplication;
     }
 
     @PutMapping("/{id}")
@@ -66,15 +71,24 @@ public class ApplicationController {
         if (existing.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
+        String previousStatusLabel = existing.get().getStatus() != null ? existing.get().getStatus().getLabel() : null;
         application.setApplicationId(id);
         application.setCandidate(existing.get().getCandidate());
         application.setJob(existing.get().getJob());
-        return ResponseEntity.ok(applicationService.saveApplication(application));
+        application.setCreatedAt(existing.get().getCreatedAt());
+        Application updatedApplication = applicationService.saveApplication(application);
+        String nextStatusLabel = updatedApplication.getStatus() != null ? updatedApplication.getStatus().getLabel() : null;
+        if ((previousStatusLabel == null && nextStatusLabel != null)
+            || (previousStatusLabel != null && !previousStatusLabel.equals(nextStatusLabel))) {
+            applicationActivityService.logStatusChanged(updatedApplication, previousStatusLabel, nextStatusLabel);
+        }
+        return ResponseEntity.ok(updatedApplication);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteApplication(@PathVariable UUID id) {
-        if (!applicationService.getApplicationByIdForCurrentCompany(id).isPresent()) {
+        Optional<Application> existing = applicationService.getApplicationByIdForCurrentCompany(id);
+        if (existing.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
         applicationService.deleteApplication(id);

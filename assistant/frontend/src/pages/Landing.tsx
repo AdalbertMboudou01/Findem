@@ -16,7 +16,7 @@ const features = [
   { icon: Filter, title: 'Filtrage sans scoring', desc: 'Grille de criteres explicites, pas de note opaque. Le recruteur garde le controle de la decision finale.' },
   { icon: Users, title: 'Fiches synthetiques', desc: 'Chaque candidature est transformee en une fiche standardisee, lisible en 30 secondes.' },
   { icon: Briefcase, title: 'Gestion des offres', desc: 'Creez vos offres, generez un lien de candidature unique, et suivez chaque poste en temps reel.' },
-  { icon: BarChart3, title: 'Vivier de talents', desc: 'Conservez les profils non retenus pour les reactiver sur de futures opportunites.' },
+  { icon: BarChart3, title: 'Pilotage des decisions', desc: 'Centralisez les decisions recruteur et gardez un suivi clair des candidatures.' },
   { icon: Shield, title: 'Transparence totale', desc: 'Chaque decision est tracable. Les criteres de filtrage sont visibles et explicables.' },
 ];
 

@@ -8,7 +8,10 @@ import com.memoire.assistant.model.ChatAnswer;
 import com.memoire.assistant.model.Job;
 import com.memoire.assistant.repository.ChatAnswerRepository;
 import com.memoire.assistant.repository.ApplicationRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.text.Normalizer;
@@ -18,6 +21,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class ChatAnswerService {
+
+    private static final Logger log = LoggerFactory.getLogger(ChatAnswerService.class);
     
     @Autowired
     private ChatAnswerRepository chatAnswerRepository;
@@ -30,6 +35,9 @@ public class ChatAnswerService {
 
     @Autowired
     private SemanticExtractionService semanticExtractionService;
+
+    @Value("${app.semantic-extractor.require-llm:false}")
+    private boolean requireLlmExtraction;
     
     private static final Pattern TOKEN_SPLIT_PATTERN = Pattern.compile("[,;/\\n]");
     
@@ -414,7 +422,13 @@ public class ChatAnswerService {
             analysis.setSemanticFacts(sanitizedFacts);
             analysis.setSemanticFallbackUsed(false);
             analysis.setMissingInformation(missing.stream().distinct().collect(Collectors.toList()));
+            log.info("LLM semantic extraction succeeded for applicationId={} with {} facts", analysis.getApplicationId(), sanitizedFacts.size());
             return;
+        }
+
+        log.warn("LLM semantic extraction returned no facts; switching to fallback for applicationId={} (answers={})", analysis.getApplicationId(), answers == null ? 0 : answers.size());
+        if (requireLlmExtraction) {
+            throw new IllegalStateException("LLM extraction required but no semantic facts were returned");
         }
 
         List<AnalysisFactDTO> facts = new ArrayList<>();

@@ -64,7 +64,7 @@ public class Job {
     private String serviceEntreprise;
     
     @Column(name = "statut", columnDefinition = "TEXT")
-    private String statut; // ouvert/pause/clôturé
+    private String statut; // ouvert/clôturé
 
     @Column(name = "max_candidatures")
     private Integer maxCandidatures;

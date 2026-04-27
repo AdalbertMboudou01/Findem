@@ -1,10 +1,13 @@
 package com.memoire.assistant.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.UUID;
 
 public class PublicJobSummaryResponse {
     private UUID jobId;
     private String title;
+    @JsonProperty("isAccepting")
     private boolean isAccepting;
     private int candidateCount;
     private Integer maxCandidatures;
@@ -25,6 +28,7 @@ public class PublicJobSummaryResponse {
         return title;
     }
 
+    @JsonProperty("isAccepting")
     public boolean isAccepting() {
         return isAccepting;
     }
