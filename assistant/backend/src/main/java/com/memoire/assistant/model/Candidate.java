@@ -6,7 +6,10 @@ import jakarta.persistence.Id;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Column;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.util.Date;
+import java.util.Map;
 import java.util.UUID;
 
 @Entity
@@ -39,6 +42,13 @@ public class Candidate {
     private String cvContentType;
     
     private Date createdAt;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "github_cache", columnDefinition = "jsonb")
+    private Map<String, Object> githubCache;
+
+    @Column(name = "github_cache_at")
+    private Date githubCacheAt;
 
     // Getters & Setters
     public UUID getCandidateId() {
@@ -160,5 +170,21 @@ public class Candidate {
     
     public void setCreatedAt(Date createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Map<String, Object> getGithubCache() {
+        return githubCache;
+    }
+
+    public void setGithubCache(Map<String, Object> githubCache) {
+        this.githubCache = githubCache;
+    }
+
+    public Date getGithubCacheAt() {
+        return githubCacheAt;
+    }
+
+    public void setGithubCacheAt(Date githubCacheAt) {
+        this.githubCacheAt = githubCacheAt;
     }
 }

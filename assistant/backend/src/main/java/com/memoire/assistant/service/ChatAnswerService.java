@@ -4,10 +4,13 @@ import com.memoire.assistant.dto.ChatAnswerAnalysisDTO;
 import com.memoire.assistant.dto.GithubAnalysisDTO;
 import com.memoire.assistant.dto.AnalysisFactDTO;
 import com.memoire.assistant.model.Application;
+import com.memoire.assistant.model.Candidate;
 import com.memoire.assistant.model.ChatAnswer;
 import com.memoire.assistant.model.Job;
+import com.memoire.assistant.repository.CandidateRepository;
 import com.memoire.assistant.repository.ChatAnswerRepository;
 import com.memoire.assistant.repository.ApplicationRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +33,9 @@ public class ChatAnswerService {
     
     @Autowired
     private ApplicationRepository applicationRepository;
+
+    @Autowired
+    private CandidateRepository candidateRepository;
 
     @Autowired
     private GitHubAnalysisService gitHubAnalysisService;
@@ -177,6 +183,10 @@ public class ChatAnswerService {
         analysis.setMotivationKeywords(detectedMarkers.stream().distinct().collect(Collectors.toList()));
     }
 
+    // Cache TTL: 7 jours
+    private static final long GITHUB_CACHE_TTL_MS = 7L * 24 * 60 * 60 * 1000;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     private void enrichWithGitHubAndPortfolio(Application application, ChatAnswerAnalysisDTO analysis) {
         if (application == null || application.getCandidate() == null) {
             return;
@@ -195,7 +205,7 @@ public class ChatAnswerService {
         String githubUrl = application.getCandidate().getGithubUrl();
         if (githubUrl != null && !githubUrl.trim().isEmpty()) {
             hasExternalProfile = true;
-            GithubAnalysisDTO githubAnalysis = gitHubAnalysisService.analyzeGitHubProfile(githubUrl);
+            GithubAnalysisDTO githubAnalysis = resolveGithubAnalysis(application.getCandidate(), githubUrl);
             if (Boolean.TRUE.equals(githubAnalysis.getSuccess())) {
                 if (githubAnalysis.getLanguages() != null) {
                     mergedSkills.addAll(githubAnalysis.getLanguages());
@@ -253,6 +263,32 @@ public class ChatAnswerService {
         if (!githubSummaryParts.isEmpty()) {
             analysis.setGithubSummary(String.join(" | ", githubSummaryParts));
         }
+    }
+
+    /** Retourne le résultat GitHub depuis le cache BDD si valide, sinon appelle l'API et met en cache. */
+    @SuppressWarnings("unchecked")
+    private GithubAnalysisDTO resolveGithubAnalysis(com.memoire.assistant.model.Candidate candidate, String githubUrl) {
+        // Vérifier cache
+        if (candidate.getGithubCache() != null && candidate.getGithubCacheAt() != null) {
+            long age = System.currentTimeMillis() - candidate.getGithubCacheAt().getTime();
+            if (age < GITHUB_CACHE_TTL_MS) {
+                try {
+                    return OBJECT_MAPPER.convertValue(candidate.getGithubCache(), GithubAnalysisDTO.class);
+                } catch (Exception e) {
+                    log.warn("Impossible de désérialiser github_cache pour {}: {}", candidate.getCandidateId(), e.getMessage());
+                }
+            }
+        }
+        // Cache absent ou expiré → appel API
+        GithubAnalysisDTO result = gitHubAnalysisService.analyzeGitHubProfile(githubUrl);
+        try {
+            candidate.setGithubCache(OBJECT_MAPPER.convertValue(result, Map.class));
+            candidate.setGithubCacheAt(new java.util.Date());
+            candidateRepository.save(candidate);
+        } catch (Exception e) {
+            log.warn("Impossible de sauvegarder github_cache pour {}: {}", candidate.getCandidateId(), e.getMessage());
+        }
+        return result;
     }
     
     /**

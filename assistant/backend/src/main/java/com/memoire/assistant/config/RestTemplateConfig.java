@@ -17,19 +17,17 @@ public class RestTemplateConfig {
     
     @Bean
     public RestTemplate restTemplate() {
-        RestTemplate restTemplate = new RestTemplate();
-        
-        // Configuration des timeouts
-        restTemplate.setRequestFactory(new org.springframework.http.client.SimpleClientHttpRequestFactory());
+        org.springframework.http.client.SimpleClientHttpRequestFactory factory =
+            new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(3000);  // 3s connexion
+        factory.setReadTimeout(5000);     // 5s lecture
+
+        RestTemplate restTemplate = new RestTemplate(factory);
         
         // Configuration des convertisseurs JSON
         List<org.springframework.http.converter.HttpMessageConverter<?>> converters = new ArrayList<>();
         converters.add(new MappingJackson2HttpMessageConverter());
         restTemplate.setMessageConverters(converters);
-        
-        // Configuration des headers par défaut
-        HttpHeaders defaultHeaders = new HttpHeaders();
-        defaultHeaders.setContentType(MediaType.APPLICATION_JSON);
         
         return restTemplate;
     }
