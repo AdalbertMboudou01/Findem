@@ -11,7 +11,7 @@ CREATE TYPE notification_type AS ENUM (
 CREATE TABLE internal_notifications (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id         UUID NOT NULL,
-    company_id      UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    company_id      UUID NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
     type            notification_type NOT NULL,
     title           VARCHAR(255) NOT NULL,
     message         TEXT,

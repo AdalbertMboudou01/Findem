@@ -5,8 +5,8 @@ CREATE TYPE task_priority AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'URGENT');
 
 CREATE TABLE tasks (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    application_id UUID NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
-    company_id  UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    application_id UUID NOT NULL REFERENCES applications(application_id) ON DELETE CASCADE,
+    company_id  UUID NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
     title       VARCHAR(255) NOT NULL,
     description TEXT,
     assignee_id UUID,

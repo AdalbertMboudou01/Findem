@@ -4,8 +4,8 @@ CREATE TYPE sentiment_type AS ENUM ('FAVORABLE', 'RESERVE', 'DEFAVORABLE');
 
 CREATE TABLE decision_inputs (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    application_id  UUID NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
-    company_id      UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    application_id  UUID NOT NULL REFERENCES applications(application_id) ON DELETE CASCADE,
+    company_id      UUID NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
     author_id       UUID NOT NULL,
     sentiment       sentiment_type NOT NULL,
     comment         TEXT,
@@ -15,8 +15,8 @@ CREATE TABLE decision_inputs (
 
 CREATE TABLE decisions (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    application_id  UUID NOT NULL UNIQUE REFERENCES applications(id) ON DELETE CASCADE,
-    company_id      UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    application_id  UUID NOT NULL UNIQUE REFERENCES applications(application_id) ON DELETE CASCADE,
+    company_id      UUID NOT NULL REFERENCES companies(company_id) ON DELETE CASCADE,
     final_status    VARCHAR(100) NOT NULL,
     rationale       TEXT,
     decided_by      UUID NOT NULL,
