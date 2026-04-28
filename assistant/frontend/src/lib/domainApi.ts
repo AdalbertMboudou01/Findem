@@ -1152,3 +1152,28 @@ export async function recordFinalDecision(
   const res = await postJson<BackendDecision>(`/api/applications/${applicationId}/decision`, { finalStatus, rationale });
   return mapDecision(res);
 }
+
+// ─── Team Views ─────────────────────────────────────────────────────────────
+
+export type TeamViewKey = 'attente_avis' | 'pret_a_decider' | 'attente_candidat' | 'activite_offre';
+
+export type TeamViewEntry = {
+  application_id: string;
+  candidate_id: string;
+  offer_id: string | null;
+  status: string;
+  created_at: string;
+};
+
+export async function loadTeamView(view: TeamViewKey, offerId?: string): Promise<TeamViewEntry[]> {
+  const params = new URLSearchParams({ view });
+  if (offerId) params.set('offerId', offerId);
+  const applications = await getJson<BackendApplication[]>(`/api/applications?${params}`);
+  return (applications || []).map((app) => ({
+    application_id: app.applicationId ?? '',
+    candidate_id: app.candidate?.candidateId ?? '',
+    offer_id: app.job?.jobId ?? null,
+    status: app.status?.code ?? app.status?.label ?? 'en_cours',
+    created_at: app.createdAt ?? '',
+  }));
+}

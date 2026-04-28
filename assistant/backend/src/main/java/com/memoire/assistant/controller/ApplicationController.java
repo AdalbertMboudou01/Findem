@@ -5,6 +5,7 @@ import com.memoire.assistant.model.ApplicationActivity.EventType;
 import com.memoire.assistant.model.Candidate;
 import com.memoire.assistant.service.ApplicationService;
 import com.memoire.assistant.service.ApplicationActivityService;
+import com.memoire.assistant.service.TeamViewService;
 import com.memoire.assistant.dto.ApplicationCreateRequest;
 import com.memoire.assistant.model.Job;
 import com.memoire.assistant.model.ApplicationStatus;
@@ -38,9 +39,17 @@ public class ApplicationController {
     @Autowired
     private CandidateRepository candidateRepository;
 
+    @Autowired
+    private TeamViewService teamViewService;
+
     @GetMapping
-    public List<Application> getAllApplications() {
-        return applicationService.getAllApplicationsForCurrentCompany();
+    public ResponseEntity<?> getApplications(
+            @RequestParam(required = false) String view,
+            @RequestParam(required = false) UUID offerId) {
+        if (view == null) {
+            return ResponseEntity.ok(applicationService.getAllApplicationsForCurrentCompany());
+        }
+        return ResponseEntity.ok(teamViewService.getView(view, offerId));
     }
 
     @GetMapping("/{id}")
