@@ -5,7 +5,6 @@ import { useAuth } from '../../lib/AuthContext';
 import { MobileMenuButton } from './Sidebar';
 import { loadMyInAppNotifications, markAllInAppNotificationsAsRead, markInAppNotificationAsRead } from '../../lib/domainApi';
 import type { InAppNotification } from '../../types';
-import { openGlobalCommandPalette } from './GlobalCommandPalette';
 
 interface TopBarProps {
   title: string;
@@ -132,16 +131,10 @@ export default function TopBar({ title, subtitle, actions }: TopBarProps) {
 
       {/* Centered search - hidden on small mobile */}
       <div className="flex-1 hidden sm:flex justify-center">
-        <button
-          onClick={openGlobalCommandPalette}
-          className="relative w-full max-w-[480px] h-8 pl-9 pr-2 text-body1 bg-t-bg3 border border-t-stroke2 rounded-fluent outline-none hover:bg-t-bg1 transition-colors text-left"
-        >
+        <div className="relative w-full max-w-[480px] h-8 pl-9 pr-2 text-body1 bg-t-bg3 border border-t-stroke2 rounded-fluent text-left cursor-default">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-t-fg3" />
           <span className="text-t-fg3">Rechercher ou agir</span>
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 text-[10px] text-t-fg3 border border-t-stroke2 rounded px-1.5 py-0.5">
-            <Command className="w-3 h-3" />K
-          </span>
-        </button>
+        </div>
       </div>
 
       {/* Spacer on mobile when search hidden */}
@@ -150,13 +143,7 @@ export default function TopBar({ title, subtitle, actions }: TopBarProps) {
       {/* Right actions */}
       <div className="flex items-center gap-1 ml-2 md:ml-4 shrink-0">
         {actions}
-        <button
-          onClick={openGlobalCommandPalette}
-          className="sm:hidden w-8 h-8 flex items-center justify-center rounded-fluent text-t-fg3 hover:bg-t-bg1-hover transition-colors"
-          aria-label="Ouvrir la commande rapide"
-        >
-          <Command className="w-4 h-4" />
-        </button>
+
         <div className="relative">
           <button
             onClick={toggleNotifications}

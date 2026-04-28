@@ -2,18 +2,26 @@ package com.memoire.assistant.service;
 
 import com.memoire.assistant.dto.AnalysisFactFeedbackRequest;
 import com.memoire.assistant.dto.AnalysisFactFeedbackResponse;
+import com.memoire.assistant.dto.AnalysisQualityMetricsDTO;
 import com.memoire.assistant.model.AnalysisFactFeedback;
 import com.memoire.assistant.model.Application;
 import com.memoire.assistant.repository.AnalysisFactFeedbackRepository;
 import com.memoire.assistant.repository.ApplicationRepository;
+import com.memoire.assistant.security.TenantContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.LinkedHashMap;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -79,6 +87,94 @@ public class AnalysisFactFeedbackService {
         }
 
         return latestByKey.values().stream().collect(Collectors.toList());
+    }
+
+    public AnalysisQualityMetricsDTO getQualityMetrics(int days) {
+        int safeDays = Math.max(1, Math.min(days, 365));
+        LocalDateTime windowStart = LocalDateTime.now().minusDays(safeDays);
+        UUID companyId = TenantContext.getCompanyId();
+
+        List<AnalysisFactFeedback> scopedFeedback = companyId == null
+            ? feedbackRepository.findByCreatedAtAfterOrderByCreatedAtDesc(windowStart)
+            : feedbackRepository.findByApplication_Job_Company_CompanyIdAndCreatedAtAfterOrderByCreatedAtDesc(companyId, windowStart);
+
+        Map<String, AnalysisFactFeedback> latestByFact = new LinkedHashMap<>();
+        for (AnalysisFactFeedback item : scopedFeedback) {
+            String key = buildFactKey(item);
+            latestByFact.putIfAbsent(key, item);
+        }
+
+        List<AnalysisFactFeedback> latestFacts = new ArrayList<>(latestByFact.values());
+        Set<UUID> reviewedApplications = latestFacts.stream()
+            .map(item -> item.getApplication() == null ? null : item.getApplication().getApplicationId())
+            .filter(v -> v != null)
+            .collect(Collectors.toCollection(HashSet::new));
+
+        int confirmed = countDecision(latestFacts, "CONFIRMED");
+        int corrected = countDecision(latestFacts, "CORRECTED");
+        int rejected = countDecision(latestFacts, "REJECTED");
+        int reviewedFacts = latestFacts.size();
+
+        AnalysisQualityMetricsDTO dto = new AnalysisQualityMetricsDTO();
+        dto.setWindowDays(safeDays);
+        dto.setGeneratedAt(LocalDateTime.now());
+        dto.setFeedbackEvents(scopedFeedback.size());
+        dto.setReviewedFacts(reviewedFacts);
+        dto.setReviewedApplications(reviewedApplications.size());
+        dto.setConfirmedFacts(confirmed);
+        dto.setCorrectedFacts(corrected);
+        dto.setRejectedFacts(rejected);
+        dto.setPrecisionScore(reviewedFacts == 0 ? 0.0 : ((double) confirmed + 0.5 * (double) corrected) / (double) reviewedFacts);
+        dto.setCorrectionRate(reviewedFacts == 0 ? 0.0 : (double) corrected / (double) reviewedFacts);
+        dto.setRejectionRate(reviewedFacts == 0 ? 0.0 : (double) rejected / (double) reviewedFacts);
+        dto.setByDimension(buildByDimension(latestFacts));
+
+        return dto;
+    }
+
+    private List<AnalysisQualityMetricsDTO.DimensionMetricsDTO> buildByDimension(List<AnalysisFactFeedback> latestFacts) {
+        Map<String, List<AnalysisFactFeedback>> grouped = new HashMap<>();
+        for (AnalysisFactFeedback item : latestFacts) {
+            String dimension = safeOrDefault(item.getDimension(), "general").toLowerCase(Locale.ROOT);
+            grouped.computeIfAbsent(dimension, ignored -> new ArrayList<>()).add(item);
+        }
+
+        return grouped.entrySet().stream()
+            .map(entry -> {
+                List<AnalysisFactFeedback> facts = entry.getValue();
+                int total = facts.size();
+                int confirmed = countDecision(facts, "CONFIRMED");
+                int corrected = countDecision(facts, "CORRECTED");
+                int rejected = countDecision(facts, "REJECTED");
+
+                AnalysisQualityMetricsDTO.DimensionMetricsDTO item = new AnalysisQualityMetricsDTO.DimensionMetricsDTO();
+                item.setDimension(entry.getKey());
+                item.setReviewedFacts(total);
+                item.setConfirmedFacts(confirmed);
+                item.setCorrectedFacts(corrected);
+                item.setRejectedFacts(rejected);
+                item.setPrecisionScore(total == 0 ? 0.0 : ((double) confirmed + 0.5 * (double) corrected) / (double) total);
+                return item;
+            })
+            .sorted(Comparator.comparing(AnalysisQualityMetricsDTO.DimensionMetricsDTO::getReviewedFacts).reversed())
+            .collect(Collectors.toList());
+    }
+
+    private int countDecision(List<AnalysisFactFeedback> items, String decision) {
+        return (int) items.stream()
+            .filter(item -> decision.equalsIgnoreCase(safe(item.getDecision())))
+            .count();
+    }
+
+    private String buildFactKey(AnalysisFactFeedback item) {
+        String applicationId = item.getApplication() == null || item.getApplication().getApplicationId() == null
+            ? ""
+            : item.getApplication().getApplicationId().toString();
+        return applicationId
+            + "::"
+            + safeOrDefault(item.getDimension(), "general")
+            + "::"
+            + safe(item.getFinding());
     }
 
     private AnalysisFactFeedbackResponse toResponse(AnalysisFactFeedback feedback) {

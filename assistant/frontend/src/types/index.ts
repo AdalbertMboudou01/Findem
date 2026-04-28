@@ -124,7 +124,10 @@ export interface Candidate {
   location_assessment: string;
   points_forts: string[];
   points_attention: string[];
+  follow_up_questions: string[];
   action_recommandee: string;
+  ai_recommended_action: string | null;
+  ai_recommended_status: CandidateStatus | null;
   analysis_schema_version: string | null;
   analysis_fallback_used: boolean;
   analysis_facts: AnalysisFact[];

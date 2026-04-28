@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { TriBadge, StatusBadge } from '../components/ui/Badge';
 import type { AnalysisFactFeedback, AnalysisFactFeedbackDecision, ApplicationActivity, ApplicationComment, Candidate, CandidateStatus, Offer } from '../types';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createApplicationComment, loadAnalysisFactFeedback, loadApplicationActivities, loadApplicationComments, loadLatestAnalysisFactFeedback, loadRecruitmentData, setCandidateDecision, submitAnalysisFactFeedback } from '../lib/domainApi';
 import { getBlob, getJson } from '../lib/api';
 
@@ -56,6 +56,14 @@ function formatDateTime(iso: string) {
     minute: '2-digit',
     second: '2-digit',
   });
+}
+
+function labelForStatus(status: CandidateStatus) {
+  if (status === 'retenu_entretien') return 'Retenir';
+  if (status === 'a_revoir_manuellement') return 'A revoir';
+  if (status === 'non_retenu') return 'Ecarter';
+  if (status === 'vivier') return 'Vivier';
+  return 'En attente';
 }
 
 export function CandidateEmpty() {
@@ -157,6 +165,7 @@ export default function CandidateDetail() {
   }
 
   const c = useMemo(() => candidates.find((item) => item.id === id), [candidates, id]);
+  const canApplyAiRecommendation = Boolean(c?.ai_recommended_status && c.ai_recommended_status !== c.status);
 
   useEffect(() => {
     let mounted = true;
@@ -554,6 +563,21 @@ export default function CandidateDetail() {
               </div>
             )}
 
+            {c.follow_up_questions.length > 0 && (
+              <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
+                <h3 className="inline-flex items-center gap-2 text-caption1 font-semibold text-t-fg2 uppercase tracking-wider mb-2">
+                  <MessageCircle className="w-3.5 h-3.5" />Questions de relance suggerees
+                </h3>
+                <ul className="space-y-1">
+                  {c.follow_up_questions.map((q, i) => (
+                    <li key={i} className="text-body1 text-t-fg1 flex items-start gap-2">
+                      <span className="w-1 h-1 rounded-full bg-t-brand-80 mt-2 shrink-0" />{q}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {c.analysis_facts.length > 0 && (
               <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
                 <h3 className="inline-flex items-center gap-2 text-caption1 font-semibold text-t-fg2 uppercase tracking-wider mb-2">
@@ -689,6 +713,25 @@ export default function CandidateDetail() {
                 <CheckCircle2 className="w-3.5 h-3.5" />Lecture recruteur
               </h3>
               <p className="text-body1 text-t-brand-70">{c.action_recommandee}</p>
+              {c.ai_recommended_status && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center px-2 py-1 rounded-fluent bg-t-bg1 text-caption1 text-t-fg2 border border-t-stroke3">
+                    Statut IA suggere: {labelForStatus(c.ai_recommended_status)}
+                  </span>
+                  {canApplyAiRecommendation && (
+                    <button
+                      onClick={() => handleStatusChange(c.ai_recommended_status as CandidateStatus)}
+                      disabled={actionLoading}
+                      className="h-7 px-2.5 text-caption1 font-semibold rounded-fluent inline-flex items-center gap-1 bg-t-brand-80 text-white hover:opacity-90 disabled:opacity-40 transition-opacity"
+                    >
+                      Appliquer la reco IA
+                    </button>
+                  )}
+                  {!canApplyAiRecommendation && (
+                    <span className="text-caption1 text-t-fg3">Statut deja aligne avec la recommandation IA.</span>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
@@ -866,10 +909,10 @@ function CvViewer({ candidate }: { candidate: Candidate }) {
   if (!candidate.cv_url) {
     return (
       <div className="max-w-[800px]">
-        <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-16 text-center">
-          <FileText className="w-10 h-10 mx-auto mb-3 text-t-fg-disabled" strokeWidth={1} />
-          <p className="text-body1 text-t-fg3 mb-1">Aucun CV disponible</p>
-          <p className="text-caption1 text-t-fg-disabled">Le CV doit etre fourni par le candidat via le formulaire de candidature.</p>
+        <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-10 text-center">
+          <Download className="w-10 h-10 mx-auto mb-3 text-t-fg-disabled rotate-180" strokeWidth={1} />
+          <p className="text-body1 text-t-fg1 mb-1">Aucun CV disponible pour ce candidat</p>
+          <p className="text-caption1 text-t-fg-disabled">L’upload de CV a été désactivé.</p>
         </div>
       </div>
     );

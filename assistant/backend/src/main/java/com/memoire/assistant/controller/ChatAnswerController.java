@@ -4,6 +4,7 @@ import com.memoire.assistant.dto.ChatAnswerAnalysisDTO;
 import com.memoire.assistant.dto.ChatAnswerDTO;
 import com.memoire.assistant.dto.AnalysisFactFeedbackRequest;
 import com.memoire.assistant.dto.AnalysisFactFeedbackResponse;
+import com.memoire.assistant.dto.AnalysisQualityMetricsDTO;
 import com.memoire.assistant.service.ChatAnswerService;
 import com.memoire.assistant.service.AnalysisFactFeedbackService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -121,63 +122,88 @@ public class ChatAnswerController {
             @Parameter(description = "ID de la candidature") @PathVariable UUID applicationId) {
         try {
             ChatAnswerAnalysisDTO analysis = chatAnswerService.analyzeChatAnswers(applicationId);
-            List<AnalysisFactFeedbackResponse> latestFeedback = analysisFactFeedbackService.getLatestFeedbackByApplication(applicationId);
-
-            Set<String> reviewedKeys = latestFeedback.stream()
-                .map(item -> ((item.getDimension() == null ? "general" : item.getDimension()) + "::" + (item.getFinding() == null ? "" : item.getFinding())))
-                .collect(Collectors.toSet());
-
-            int totalFacts = analysis.getSemanticFacts() == null ? 0 : analysis.getSemanticFacts().size();
-            int reviewedFacts = analysis.getSemanticFacts() == null ? 0 : (int) analysis.getSemanticFacts().stream()
-                .filter(f -> reviewedKeys.contains((f.getDimension() == null ? "general" : f.getDimension()) + "::" + (f.getFinding() == null ? "" : f.getFinding())))
-                .count();
-            double completionRate = totalFacts == 0 ? 0.0 : ((double) reviewedFacts / (double) totalFacts);
-
-            Map<String, Object> analysisSchema = Map.of(
-                "version", analysis.getAnalysisSchemaVersion() == null ? "phase1.v1" : analysis.getAnalysisSchemaVersion(),
-                "facts", analysis.getSemanticFacts() == null ? List.of() : analysis.getSemanticFacts(),
-                "missingInformation", analysis.getMissingInformation() == null ? List.of() : analysis.getMissingInformation(),
-                "contradictions", analysis.getInconsistencies() == null ? List.of() : analysis.getInconsistencies(),
-                "fallbackUsed", analysis.isSemanticFallbackUsed()
-            );
-
-            Map<String, Object> analysisReviewCoverage = Map.of(
-                "reviewedFacts", reviewedFacts,
-                "totalFacts", totalFacts,
-                "completionRate", completionRate
-            );
-            
-            return ResponseEntity.ok(
-                Map.ofEntries(
-                    Map.entry("applicationId", applicationId.toString()),
-                    Map.entry("motivationLevel", analysis.getMotivationLevel()),
-                    Map.entry("technicalLevel", analysis.getTechnicalLevel()),
-                    Map.entry("hasProjectDetails", analysis.isHasProjectDetails()),
-                    Map.entry("hasClearAvailability", analysis.isHasClearAvailability()),
-                    Map.entry("locationMatch", analysis.getLocationMatch()),
-                    Map.entry("completenessScore", analysis.getCompletenessScore()),
-                    Map.entry("recommendedAction", analysis.getRecommendedAction()),
-                    Map.entry("motivationSummary", analysis.getMotivationSummary()),
-                    Map.entry("motivationAssessment", analysis.getMotivationAssessment() == null ? "" : analysis.getMotivationAssessment()),
-                    Map.entry("projectAssessment", analysis.getProjectAssessment() == null ? "" : analysis.getProjectAssessment()),
-                    Map.entry("githubSummary", analysis.getGithubSummary() == null ? "" : analysis.getGithubSummary()),
-                    Map.entry("githubAssessment", analysis.getGithubAssessment() == null ? "" : analysis.getGithubAssessment()),
-                    Map.entry("availabilityAssessment", analysis.getAvailabilityAssessment() == null ? "" : analysis.getAvailabilityAssessment()),
-                    Map.entry("locationAssessment", analysis.getLocationAssessment() == null ? "" : analysis.getLocationAssessment()),
-                    Map.entry("mentionedProjects", analysis.getMentionedProjects()),
-                    Map.entry("technicalSkills", analysis.getTechnicalSkills()),
-                    Map.entry("strengths", analysis.getStrengths() == null ? List.of() : analysis.getStrengths()),
-                    Map.entry("missingInformation", analysis.getMissingInformation()),
-                    Map.entry("inconsistencies", analysis.getInconsistencies()),
-                    Map.entry("pointsToConfirm", analysis.getPointsToConfirm() == null ? List.of() : analysis.getPointsToConfirm()),
-                    Map.entry("recruiterGuidance", analysis.getRecruiterGuidance() == null ? "" : analysis.getRecruiterGuidance()),
-                    Map.entry("analysisSchema", analysisSchema),
-                    Map.entry("analysisReviewCoverage", analysisReviewCoverage)
-                )
-            );
+            return ResponseEntity.ok(buildSummaryMap(applicationId, analysis));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
+    }
+
+    @PostMapping("/summary/batch")
+    @PreAuthorize("hasRole('RECRUITER') or hasRole('ADMIN')")
+    @Operation(summary = "Résumés en lot pour plusieurs candidatures", description = "Retourne les résumés d'analyse pour une liste d'IDs de candidatures en une seule requête")
+    public ResponseEntity<Map<String, Object>> getAnswersSummaryBatch(@RequestBody List<String> applicationIdStrings) {
+        try {
+            List<UUID> applicationIds = applicationIdStrings.stream()
+                .filter(s -> s != null && !s.isBlank())
+                .map(UUID::fromString)
+                .collect(Collectors.toList());
+
+            Map<UUID, ChatAnswerAnalysisDTO> analyses = chatAnswerService.analyzeChatAnswersBatch(applicationIds);
+
+            Map<String, Object> result = new HashMap<>();
+            for (Map.Entry<UUID, ChatAnswerAnalysisDTO> entry : analyses.entrySet()) {
+                result.put(entry.getKey().toString(), buildSummaryMap(entry.getKey(), entry.getValue()));
+            }
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", e.getMessage() == null ? "Erreur batch" : e.getMessage()));
+        }
+    }
+
+    private Map<String, Object> buildSummaryMap(UUID applicationId, ChatAnswerAnalysisDTO analysis) {
+        List<AnalysisFactFeedbackResponse> latestFeedback = analysisFactFeedbackService.getLatestFeedbackByApplication(applicationId);
+
+        Set<String> reviewedKeys = latestFeedback.stream()
+            .map(item -> ((item.getDimension() == null ? "general" : item.getDimension()) + "::" + (item.getFinding() == null ? "" : item.getFinding())))
+            .collect(Collectors.toSet());
+
+        int totalFacts = analysis.getSemanticFacts() == null ? 0 : analysis.getSemanticFacts().size();
+        int reviewedFacts = analysis.getSemanticFacts() == null ? 0 : (int) analysis.getSemanticFacts().stream()
+            .filter(f -> reviewedKeys.contains((f.getDimension() == null ? "general" : f.getDimension()) + "::" + (f.getFinding() == null ? "" : f.getFinding())))
+            .count();
+        double completionRate = totalFacts == 0 ? 0.0 : ((double) reviewedFacts / (double) totalFacts);
+
+        Map<String, Object> analysisSchema = Map.of(
+            "version", analysis.getAnalysisSchemaVersion() == null ? "phase1.v1" : analysis.getAnalysisSchemaVersion(),
+            "facts", analysis.getSemanticFacts() == null ? List.of() : analysis.getSemanticFacts(),
+            "missingInformation", analysis.getMissingInformation() == null ? List.of() : analysis.getMissingInformation(),
+            "contradictions", analysis.getInconsistencies() == null ? List.of() : analysis.getInconsistencies(),
+            "fallbackUsed", analysis.isSemanticFallbackUsed()
+        );
+
+        Map<String, Object> analysisReviewCoverage = Map.of(
+            "reviewedFacts", reviewedFacts,
+            "totalFacts", totalFacts,
+            "completionRate", completionRate
+        );
+
+        return Map.ofEntries(
+            Map.entry("applicationId", applicationId.toString()),
+            Map.entry("motivationLevel", analysis.getMotivationLevel()),
+            Map.entry("technicalLevel", analysis.getTechnicalLevel()),
+            Map.entry("hasProjectDetails", analysis.isHasProjectDetails()),
+            Map.entry("hasClearAvailability", analysis.isHasClearAvailability()),
+            Map.entry("locationMatch", analysis.getLocationMatch()),
+            Map.entry("completenessScore", analysis.getCompletenessScore()),
+            Map.entry("recommendedAction", analysis.getRecommendedAction()),
+            Map.entry("motivationSummary", analysis.getMotivationSummary()),
+            Map.entry("motivationAssessment", analysis.getMotivationAssessment() == null ? "" : analysis.getMotivationAssessment()),
+            Map.entry("projectAssessment", analysis.getProjectAssessment() == null ? "" : analysis.getProjectAssessment()),
+            Map.entry("githubSummary", analysis.getGithubSummary() == null ? "" : analysis.getGithubSummary()),
+            Map.entry("githubAssessment", analysis.getGithubAssessment() == null ? "" : analysis.getGithubAssessment()),
+            Map.entry("availabilityAssessment", analysis.getAvailabilityAssessment() == null ? "" : analysis.getAvailabilityAssessment()),
+            Map.entry("locationAssessment", analysis.getLocationAssessment() == null ? "" : analysis.getLocationAssessment()),
+            Map.entry("mentionedProjects", analysis.getMentionedProjects()),
+            Map.entry("technicalSkills", analysis.getTechnicalSkills()),
+            Map.entry("strengths", analysis.getStrengths() == null ? List.of() : analysis.getStrengths()),
+            Map.entry("missingInformation", analysis.getMissingInformation()),
+            Map.entry("inconsistencies", analysis.getInconsistencies()),
+            Map.entry("pointsToConfirm", analysis.getPointsToConfirm() == null ? List.of() : analysis.getPointsToConfirm()),
+            Map.entry("followUpQuestions", analysis.getFollowUpQuestions() == null ? List.of() : analysis.getFollowUpQuestions()),
+            Map.entry("recruiterGuidance", analysis.getRecruiterGuidance() == null ? "" : analysis.getRecruiterGuidance()),
+            Map.entry("analysisSchema", analysisSchema),
+            Map.entry("analysisReviewCoverage", analysisReviewCoverage)
+        );
     }
 
     @GetMapping("/feedback/{applicationId}")
@@ -205,6 +231,22 @@ public class ChatAnswerController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
                 "message", e.getMessage() == null ? "Erreur lors de la lecture des dernieres corrections" : e.getMessage(),
+                "status", "error"
+            ));
+        }
+    }
+
+    @GetMapping("/quality-metrics")
+    @PreAuthorize("hasRole('RECRUITER') or hasRole('ADMIN')")
+    @Operation(summary = "Métriques qualité de l'analyse chatbot", description = "Retourne les indicateurs de qualité de l'analyse selon les validations/corrections recruteur")
+    public ResponseEntity<?> getQualityMetrics(
+            @Parameter(description = "Fenêtre glissante en jours (1-365)") @RequestParam(name = "days", defaultValue = "30") int days) {
+        try {
+            AnalysisQualityMetricsDTO metrics = analysisFactFeedbackService.getQualityMetrics(days);
+            return ResponseEntity.ok(metrics);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                "message", e.getMessage() == null ? "Erreur lors du calcul des métriques" : e.getMessage(),
                 "status", "error"
             ));
         }

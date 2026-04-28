@@ -2,7 +2,6 @@ package com.memoire.assistant.controller;
 
 import com.memoire.assistant.model.Application;
 import com.memoire.assistant.model.Candidate;
-import com.memoire.assistant.service.ApplicationActivityService;
 import com.memoire.assistant.service.ApplicationService;
 import com.memoire.assistant.dto.ApplicationCreateRequest;
 import com.memoire.assistant.model.Job;
@@ -26,9 +25,7 @@ import java.util.UUID;
 public class ApplicationController {
     @Autowired
     private ApplicationService applicationService;
-    @Autowired
-    private ApplicationActivityService applicationActivityService;
-    @Autowired
+        @Autowired
     private JobRepository jobRepository;
     @Autowired
     private CandidateRepository candidateRepository;
@@ -61,7 +58,6 @@ public class ApplicationController {
         status.setStatusId(request.getStatusId());
         application.setStatus(status);
         Application savedApplication = applicationService.saveApplication(application);
-        applicationActivityService.logApplicationCreated(savedApplication);
         return savedApplication;
     }
 
@@ -78,10 +74,6 @@ public class ApplicationController {
         application.setCreatedAt(existing.get().getCreatedAt());
         Application updatedApplication = applicationService.saveApplication(application);
         String nextStatusLabel = updatedApplication.getStatus() != null ? updatedApplication.getStatus().getLabel() : null;
-        if ((previousStatusLabel == null && nextStatusLabel != null)
-            || (previousStatusLabel != null && !previousStatusLabel.equals(nextStatusLabel))) {
-            applicationActivityService.logStatusChanged(updatedApplication, previousStatusLabel, nextStatusLabel);
-        }
         return ResponseEntity.ok(updatedApplication);
     }
 

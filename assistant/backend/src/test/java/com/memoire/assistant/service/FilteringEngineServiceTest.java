@@ -27,12 +27,9 @@ public class FilteringEngineServiceTest {
     
     @Mock
     private ApplicationSummaryRepository applicationSummaryRepository;
-    
+
     @Mock
-    private CVAnalysisRepository cvAnalysisRepository;
-    
-    @Mock
-    private CVAnalysisService cvAnalysisService;
+    private ChatAnswerService chatAnswerService;
     
     @Mock
     private CandidateRepository candidateRepository;

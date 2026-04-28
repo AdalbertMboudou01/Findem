@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import java.text.Normalizer;
 import java.util.*;
 import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,6 +41,17 @@ public class ChatAnswerService {
     private boolean requireLlmExtraction;
     
     private static final Pattern TOKEN_SPLIT_PATTERN = Pattern.compile("[,;/\\n]");
+    private static final Pattern YEARS_EXPERIENCE_PATTERN = Pattern.compile("(\\d{1,2})\\s*(ans|an)");
+    private static final List<String> MOTIVATION_MARKERS = List.of(
+        "motivation", "motive", "envie", "interet", "passion", "apprendre", "progress", "evoluer", "mission", "entreprise", "poste"
+    );
+    private static final List<String> GENERIC_MOTIVATION_PATTERNS = List.of(
+        "je suis motive", "je suis motivee", "je cherche un travail", "je veux un travail", "je suis interesse"
+    );
+    private static final List<String> TECH_MARKERS = List.of(
+        "java", "spring", "python", "django", "flask", "node", "express", "react", "vue", "angular", "typescript",
+        "javascript", "sql", "postgres", "mysql", "docker", "kubernetes", "aws", "gcp", "rest", "api", "ci/cd"
+    );
     
     /**
      * Analyse complète des réponses du chatbot pour une candidature
@@ -50,25 +62,59 @@ public class ChatAnswerService {
         
         List<ChatAnswer> answers = chatAnswerRepository.findByApplication_ApplicationId(applicationId);
         
-        ChatAnswerAnalysisDTO analysis = new ChatAnswerAnalysisDTO(applicationId.toString());
-        
-        // Analyser chaque dimension
+        return analyzeApplicationWithAnswers(application, answers);
+    }
+
+    /**
+     * Analyse batch : une seule requête DB pour toutes les candidatures, puis traitement par candidature.
+     * Retourne une map applicationId -> analyse.
+     */
+    public Map<UUID, ChatAnswerAnalysisDTO> analyzeChatAnswersBatch(List<UUID> applicationIds) {
+        if (applicationIds == null || applicationIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        // 1 seule requête DB pour toutes les réponses
+        List<ChatAnswer> allAnswers = chatAnswerRepository.findByApplication_ApplicationIdIn(applicationIds);
+
+        // Regrouper par applicationId
+        Map<UUID, List<ChatAnswer>> answersByApp = allAnswers.stream()
+            .filter(ca -> ca.getApplication() != null && ca.getApplication().getApplicationId() != null)
+            .collect(Collectors.groupingBy(ca -> ca.getApplication().getApplicationId()));
+
+        // 1 seule requête DB pour toutes les applications
+        List<Application> applications = applicationRepository.findAllById(applicationIds);
+        Map<UUID, Application> appById = applications.stream()
+            .collect(Collectors.toMap(Application::getApplicationId, a -> a));
+
+        Map<UUID, ChatAnswerAnalysisDTO> result = new HashMap<>();
+        for (UUID appId : applicationIds) {
+            Application application = appById.get(appId);
+            if (application == null) continue;
+            List<ChatAnswer> answers = answersByApp.getOrDefault(appId, Collections.emptyList());
+            if (answers.isEmpty()) continue;
+            try {
+                result.put(appId, analyzeApplicationWithAnswers(application, answers));
+            } catch (Exception e) {
+                log.warn("Analyse batch ignoree pour {}: {}", appId, e.getMessage());
+            }
+        }
+        return result;
+    }
+
+    private ChatAnswerAnalysisDTO analyzeApplicationWithAnswers(Application application, List<ChatAnswer> answers) {
+        ChatAnswerAnalysisDTO analysis = new ChatAnswerAnalysisDTO(application.getApplicationId().toString());
+
         analyzeMotivation(answers, analysis);
         analyzeTechnicalProfile(answers, analysis);
         enrichWithGitHubAndPortfolio(application, analysis);
         analyzeAvailability(answers, analysis);
-        analyzeLocation(answers, analysis, application.getJob());
+        analyzeLocation(answers, analysis, application);
         extractConstrainedSemanticFacts(answers, analysis);
-        
-        // Calculer le score de complétude
         calculateCompletenessScore(answers, analysis);
-        
-        // Détecter les incohérences
         detectInconsistencies(answers, analysis);
-        
-        // Produire une lecture qualitative exploitable par le recruteur
         buildQualitativeSummary(analysis);
-        
+
         return analysis;
     }
     
@@ -95,10 +141,40 @@ public class ChatAnswerService {
             .filter(text -> !text.isBlank())
             .collect(Collectors.joining(" "));
 
-        analysis.setMotivationLevel("MEDIUM");
-        analysis.setHasSpecificMotivation(!motivationText.isBlank());
+        String normalized = normalizeForSearch(motivationText);
+        int score = 0;
+        if (!motivationText.isBlank()) {
+            score += 1;
+        }
+        if (motivationText.length() >= 80) {
+            score += 1;
+        }
+        if (motivationText.length() >= 180) {
+            score += 1;
+        }
+
+        List<String> detectedMarkers = MOTIVATION_MARKERS.stream()
+            .filter(normalized::contains)
+            .collect(Collectors.toList());
+        if (detectedMarkers.size() >= 2) {
+            score += 1;
+        }
+        if (detectedMarkers.size() >= 5) {
+            score += 1;
+        }
+
+        boolean genericOnly = GENERIC_MOTIVATION_PATTERNS.stream().anyMatch(normalized::contains)
+            && detectedMarkers.size() <= 2
+            && motivationText.length() < 90;
+        if (genericOnly) {
+            score -= 1;
+        }
+
+        String level = score >= 4 ? "HIGH" : (score >= 2 ? "MEDIUM" : "LOW");
+        analysis.setMotivationLevel(level);
+        analysis.setHasSpecificMotivation(!genericOnly && !motivationText.isBlank());
         analysis.setMotivationSummary(generateMotivationSummary(motivationText));
-        analysis.setMotivationKeywords(Collections.emptyList());
+        analysis.setMotivationKeywords(detectedMarkers.stream().distinct().collect(Collectors.toList()));
     }
 
     private void enrichWithGitHubAndPortfolio(Application application, ChatAnswerAnalysisDTO analysis) {
@@ -187,6 +263,7 @@ public class ChatAnswerService {
         List<String> mentionedProjects = new ArrayList<>();
         boolean hasProjectDetails = false;
         boolean hasGitHubOrPortfolio = false;
+        int longProjectDescriptions = 0;
         
         for (ChatAnswer answer : answers) {
             String raw = answer.getAnswerText() == null ? "" : answer.getAnswerText().trim();
@@ -194,11 +271,17 @@ public class ChatAnswerService {
 
             if (isTechnicalAnswer(answer)) {
                 technicalSkills.addAll(extractListedItems(raw));
+                technicalSkills.addAll(extractTechMarkers(text));
             }
 
             if (isProjectAnswer(answer)) {
-                hasProjectDetails = true;
-                mentionedProjects.add(truncateEvidence(raw));
+                if (!raw.isBlank()) {
+                    hasProjectDetails = true;
+                    mentionedProjects.add(truncateEvidence(raw));
+                    if (raw.length() >= 80) {
+                        longProjectDescriptions++;
+                    }
+                }
             }
 
             if (text.contains("github.com") || text.contains("portfolio") || text.contains("gitlab") || text.contains("bitbucket")) {
@@ -206,7 +289,21 @@ public class ChatAnswerService {
             }
         }
 
-        analysis.setTechnicalLevel(technicalSkills.isEmpty() ? "WEAK" : "MEDIUM");
+        int distinctSkills = (int) technicalSkills.stream().filter(v -> !v.isBlank()).map(this::normalizeForSearch).distinct().count();
+        int score = 0;
+        score += Math.min(4, distinctSkills);
+        if (hasProjectDetails) {
+            score += 2;
+        }
+        if (longProjectDescriptions > 0) {
+            score += 1;
+        }
+        if (hasGitHubOrPortfolio) {
+            score += 1;
+        }
+
+        String technicalLevel = score >= 6 ? "STRONG" : (score >= 3 ? "MEDIUM" : "WEAK");
+        analysis.setTechnicalLevel(technicalLevel);
         
         analysis.setTechnicalSkills(technicalSkills.stream().distinct().collect(Collectors.toList()));
         analysis.setMentionedProjects(mentionedProjects.stream().filter(v -> !v.isBlank()).distinct().collect(Collectors.toList()));
@@ -218,38 +315,82 @@ public class ChatAnswerService {
      * Analyse de la disponibilité et du rythme d'alternance
      */
     private void analyzeAvailability(List<ChatAnswer> answers, ChatAnswerAnalysisDTO analysis) {
-        boolean hasAvailabilityAnswer = answers.stream()
+        List<String> availabilityTexts = answers.stream()
             .filter(this::isAvailabilityAnswer)
             .map(ChatAnswer::getAnswerText)
             .filter(Objects::nonNull)
             .map(String::trim)
-            .anyMatch(v -> !v.isBlank());
+            .filter(v -> !v.isBlank())
+            .collect(Collectors.toList());
 
-        boolean hasRhythmAnswer = answers.stream()
+        List<String> rhythmTexts = answers.stream()
             .filter(this::isRhythmAnswer)
             .map(ChatAnswer::getAnswerText)
             .filter(Objects::nonNull)
             .map(String::trim)
-            .anyMatch(v -> !v.isBlank());
+            .filter(v -> !v.isBlank())
+            .collect(Collectors.toList());
 
-        analysis.setAvailabilityStatus("UNSPECIFIED");
-        analysis.setAlternanceRhythm("FLEXIBLE");
-        analysis.setHasClearAvailability(hasAvailabilityAnswer || hasRhythmAnswer);
+        String combined = normalizeForSearch(String.join(" ", availabilityTexts) + " " + String.join(" ", rhythmTexts));
+
+        String availabilityStatus = "UNSPECIFIED";
+        if (!combined.isBlank()) {
+            if (containsAny(combined, List.of("immediat", "des maintenant", "tout de suite", "de suite", "asap"))) {
+                availabilityStatus = "IMMEDIATE";
+            } else if (containsAny(combined, List.of("dans", "a partir", "mois", "semaine", "septembre", "octobre", "janvier", "fevrier", "mars", "avril", "mai", "juin", "juillet", "aout", "novembre", "decembre"))) {
+                availabilityStatus = "FUTURE";
+            } else {
+                availabilityStatus = "FUTURE";
+            }
+        }
+
+        String alternanceRhythm = "FLEXIBLE";
+        if (containsAny(combined, List.of("temps plein", "full time", "5 jours", "5j", "plein temps"))) {
+            alternanceRhythm = "FULL_TIME";
+        } else if (containsAny(combined, List.of("alternance", "2 jours", "3 jours", "4 jours", "1j1s", "2j2s", "3j2s", "4j1s", "rythme"))) {
+            alternanceRhythm = "PART_TIME";
+        }
+
+        analysis.setAvailabilityStatus(availabilityStatus);
+        analysis.setAlternanceRhythm(alternanceRhythm);
+        analysis.setHasClearAvailability(!availabilityTexts.isEmpty() || !rhythmTexts.isEmpty());
     }
     
     /**
      * Analyse de la localisation
      */
-    private void analyzeLocation(List<ChatAnswer> answers, ChatAnswerAnalysisDTO analysis, Job job) {
-        boolean hasLocationEvidence = answers.stream()
+    private void analyzeLocation(List<ChatAnswer> answers, ChatAnswerAnalysisDTO analysis, Application application) {
+        List<String> locationAnswers = answers.stream()
             .filter(this::isLocationAnswer)
             .map(ChatAnswer::getAnswerText)
             .filter(Objects::nonNull)
             .map(String::trim)
-            .anyMatch(v -> !v.isBlank());
+            .filter(v -> !v.isBlank())
+            .collect(Collectors.toList());
 
-        analysis.setLocationMatch(hasLocationEvidence ? "REMOTE_COMPATIBLE" : "INCOMPATIBLE");
-        analysis.setHasMobility(hasLocationEvidence);
+        String locationText = normalizeForSearch(String.join(" ", locationAnswers));
+        String candidateLocation = application != null && application.getCandidate() != null
+            ? normalizeForSearch(application.getCandidate().getLocation())
+            : "";
+        Job job = application == null ? null : application.getJob();
+        String jobLocation = job == null ? "" : normalizeForSearch(job.getLocation());
+
+        boolean hasLocationEvidence = !locationAnswers.isEmpty() || !candidateLocation.isBlank();
+        boolean remoteCompatible = containsAny(locationText + " " + candidateLocation + " " + jobLocation,
+            List.of("teletravail", "remote", "hybride", "a distance"));
+        boolean mobility = containsAny(locationText, List.of("mobil", "deplac", "demenag", "relocalis"));
+        boolean locationMatch = !candidateLocation.isBlank() && !jobLocation.isBlank() &&
+            (candidateLocation.contains(jobLocation) || jobLocation.contains(candidateLocation));
+
+        if (locationMatch) {
+            analysis.setLocationMatch("PERFECT");
+        } else if (remoteCompatible || mobility || hasLocationEvidence) {
+            analysis.setLocationMatch("REMOTE_COMPATIBLE");
+        } else {
+            analysis.setLocationMatch("INCOMPATIBLE");
+        }
+
+        analysis.setHasMobility(mobility || remoteCompatible || locationMatch || hasLocationEvidence);
     }
     
     /**
@@ -305,6 +446,43 @@ public class ChatAnswerService {
         List<String> inconsistencies = new ArrayList<>();
         if ((analysis.getTechnicalSkills() == null || analysis.getTechnicalSkills().isEmpty()) && analysis.isHasProjectDetails()) {
             inconsistencies.add("Projets mentionnés sans technologies explicitement listées");
+        }
+
+        String availabilityText = normalizeForSearch(
+            answers.stream()
+                .filter(this::isAvailabilityAnswer)
+                .map(ChatAnswer::getAnswerText)
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining(" "))
+        );
+        boolean immediateSignal = containsAny(availabilityText, List.of("immediat", "des maintenant", "tout de suite", "de suite"));
+        boolean delayedSignal = containsAny(availabilityText, List.of("dans ", "a partir", "d'ici", "mois", "semaine prochaine"))
+            || containsAnyWord(availabilityText, List.of("septembre", "octobre", "janvier", "fevrier", "mars", "avril", "mai", "juin", "juillet", "aout", "novembre", "decembre"));
+        if (immediateSignal && delayedSignal) {
+            inconsistencies.add("Disponibilité contradictoire: immédiate et future mentionnées simultanément");
+        }
+
+        String rhythmText = normalizeForSearch(
+            answers.stream()
+                .filter(this::isRhythmAnswer)
+                .map(ChatAnswer::getAnswerText)
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining(" "))
+        );
+        boolean fullTimeSignal = containsAny(rhythmText, List.of("temps plein", "full time", "5 jours", "5j", "plein temps"));
+        boolean alternanceSignal = containsAny(rhythmText, List.of("alternance", "2 jours", "3 jours", "4 jours", "1j1s", "2j2s", "3j2s", "4j1s", "rythme"));
+        if (fullTimeSignal && alternanceSignal) {
+            inconsistencies.add("Rythme contradictoire: temps plein et alternance partielle mentionnés simultanément");
+        }
+
+        String combinedAnswers = normalizeForSearch(
+            answers.stream()
+                .map(ChatAnswer::getAnswerText)
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining(" "))
+        );
+        if (containsAny(combinedAnswers, List.of("debutant", "junior", "novice")) && mentionsHighExperience(combinedAnswers)) {
+            inconsistencies.add("Niveau d'expérience potentiellement contradictoire (débutant avec plusieurs années revendiquées)");
         }
         
         analysis.setInconsistencies(inconsistencies);
@@ -384,23 +562,91 @@ public class ChatAnswerService {
 
         analysis.setStrengths(strengths.stream().distinct().collect(Collectors.toList()));
         analysis.setPointsToConfirm(pointsToConfirm.stream().distinct().collect(Collectors.toList()));
+        analysis.setFollowUpQuestions(generateFollowUpQuestions(analysis));
         analysis.setRecommendedAction(resolveQualitativeAction(analysis));
         analysis.setRecruiterGuidance(buildRecruiterGuidance(analysis));
     }
 
+    private List<String> generateFollowUpQuestions(ChatAnswerAnalysisDTO analysis) {
+        List<String> followUps = new ArrayList<>();
+        List<String> inconsistencies = analysis.getInconsistencies() == null
+            ? List.of()
+            : analysis.getInconsistencies();
+
+        for (String inconsistency : inconsistencies) {
+            String normalized = normalizeForSearch(inconsistency);
+            if (normalized.contains("disponibilite contradictoire")) {
+                followUps.add("Pouvez-vous confirmer votre date exacte de debut et indiquer si vous etes disponible immediatement ou a une date precise ?");
+            }
+            if (normalized.contains("rythme contradictoire")) {
+                followUps.add("Quel rythme d'alternance souhaitez-vous exactement (ex: 3j/2j, 4j/1j, temps plein) ?");
+            }
+            if (normalized.contains("experience") || normalized.contains("debutant")) {
+                followUps.add("Pouvez-vous preciser vos annees d'experience reelles sur les technologies citees avec un exemple recent ?");
+            }
+            if (normalized.contains("projets mentionnes sans technologies")) {
+                followUps.add("Pour votre projet principal, pouvez-vous detailler la stack utilisee, votre role et les resultats obtenus ?");
+            }
+        }
+
+        List<String> missingInfo = analysis.getMissingInformation() == null
+            ? List.of()
+            : analysis.getMissingInformation();
+        for (String missing : missingInfo) {
+            String normalized = normalizeForSearch(missing);
+            if (normalized.contains("motivation")) {
+                followUps.add("Qu'est-ce qui vous motive specifiquement pour ce poste et cette entreprise ?");
+            }
+            if (normalized.contains("disponibilite")) {
+                followUps.add("Quelle est votre disponibilite exacte pour debuter et quel rythme pouvez-vous tenir ?");
+            }
+        }
+
+        return followUps.stream().distinct().limit(6).collect(Collectors.toList());
+    }
+
     private String resolveQualitativeAction(ChatAnswerAnalysisDTO analysis) {
-        return "MANUAL_REVIEW";
+        double evidenceConfidence = computeEvidenceConfidence(analysis);
+        boolean hasStrongConfidence = evidenceConfidence >= 0.70;
+        boolean hasLowConfidence = evidenceConfidence > 0.0 && evidenceConfidence < 0.50;
+
+        boolean strongReadiness = analysis.getCompletenessScore() >= 0.85
+            && "HIGH".equals(analysis.getMotivationLevel())
+            && "STRONG".equals(analysis.getTechnicalLevel())
+            && !"INCOMPATIBLE".equals(analysis.getLocationMatch())
+            && (analysis.getPointsToConfirm() == null || analysis.getPointsToConfirm().size() <= 2)
+            && (analysis.getInconsistencies() == null || analysis.getInconsistencies().isEmpty())
+            && !analysis.isSemanticFallbackUsed()
+            && hasStrongConfidence;
+
+        boolean weakProfile = analysis.getCompletenessScore() < 0.45
+            || "LOW".equals(analysis.getMotivationLevel())
+            || "WEAK".equals(analysis.getTechnicalLevel())
+            || "INCOMPATIBLE".equals(analysis.getLocationMatch());
+
+        if (strongReadiness) {
+            return "PRIORITY";
+        }
+        if (weakProfile) {
+            return "REJECT";
+        }
+        if (hasLowConfidence) {
+            return "REVIEW";
+        }
+        return "REVIEW";
     }
 
     private String buildRecruiterGuidance(ChatAnswerAnalysisDTO analysis) {
+        double evidenceConfidence = computeEvidenceConfidence(analysis);
         boolean incompleteProfile = (analysis.getMissingInformation() != null && analysis.getMissingInformation().size() >= 3)
             || (analysis.getPointsToConfirm() != null && analysis.getPointsToConfirm().size() >= 4)
-            || analysis.isSemanticFallbackUsed();
+            || analysis.isSemanticFallbackUsed()
+            || evidenceConfidence < 0.55;
 
         if (incompleteProfile) {
-            return "La candidature contient des éléments utiles, mais plusieurs informations clés restent à confirmer avant toute décision.";
+            return "La candidature contient des éléments utiles, mais plusieurs informations clés restent à confirmer avant toute décision (fiabilité partielle des constats).";
         }
-        return "La candidature est structurée en constats avec preuves textuelles. Une validation humaine reste requise avant décision.";
+        return "La candidature est structurée en constats avec preuves textuelles et un niveau de confiance satisfaisant. Une validation humaine reste requise avant décision.";
     }
 
     private void extractConstrainedSemanticFacts(List<ChatAnswer> answers, ChatAnswerAnalysisDTO analysis) {
@@ -567,6 +813,16 @@ public class ChatAnswerService {
             .collect(Collectors.toList());
     }
 
+    private double computeEvidenceConfidence(ChatAnswerAnalysisDTO analysis) {
+        if (analysis.getSemanticFacts() == null || analysis.getSemanticFacts().isEmpty()) {
+            return 0.0;
+        }
+        return analysis.getSemanticFacts().stream()
+            .mapToDouble(f -> Math.max(0.0, Math.min(1.0, f.getConfidence())))
+            .average()
+            .orElse(0.0);
+    }
+
     private String describeAvailability(ChatAnswerAnalysisDTO analysis) {
         String availability = analysis.getAvailabilityStatus();
         String rhythm = analysis.getAlternanceRhythm();
@@ -697,6 +953,49 @@ public class ChatAnswerService {
             .filter(v -> !v.isBlank())
             .filter(v -> v.length() <= 40)
             .collect(Collectors.toList());
+    }
+
+    private List<String> extractTechMarkers(String normalizedText) {
+        if (normalizedText == null || normalizedText.isBlank()) {
+            return List.of();
+        }
+
+        return TECH_MARKERS.stream()
+            .filter(normalizedText::contains)
+            .collect(Collectors.toList());
+    }
+
+    private boolean containsAny(String text, List<String> needles) {
+        if (text == null || text.isBlank() || needles == null || needles.isEmpty()) {
+            return false;
+        }
+        return needles.stream().anyMatch(text::contains);
+    }
+
+    private boolean containsAnyWord(String text, List<String> words) {
+        if (text == null || text.isBlank() || words == null || words.isEmpty()) {
+            return false;
+        }
+        return words.stream().anyMatch(word -> Pattern.compile("\\b" + Pattern.quote(word) + "\\b").matcher(text).find());
+    }
+
+    private boolean mentionsHighExperience(String text) {
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+
+        Matcher matcher = YEARS_EXPERIENCE_PATTERN.matcher(text);
+        while (matcher.find()) {
+            try {
+                int years = Integer.parseInt(matcher.group(1));
+                if (years >= 3) {
+                    return true;
+                }
+            } catch (NumberFormatException ignored) {
+                // Ignore malformed captures and continue scanning.
+            }
+        }
+        return false;
     }
 
     private String normalizeForSearch(String text) {

@@ -13,13 +13,10 @@ import {
   Eye,
   Bot,
   Send,
-  BarChart3,
   FileText,
-  Users,
   Upload,
   Paperclip,
   CheckCircle2,
-  ExternalLink,
   Sparkles,
 } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
@@ -35,7 +32,7 @@ const questionTemplates = [
   { text: 'Quel est votre niveau d\'experience avec les technologies demandees ?', type: 'choice' as const },
 ];
 
-type View = 'config' | 'preview' | 'stats';
+type View = 'config' | 'preview';
 
 export default function Chatbot() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -118,9 +115,6 @@ export default function Chatbot() {
 
     refreshQuestions();
   }, [selectedOfferId]);
-
-  const offerCandidates = candidates.filter((c) => c.offer_id === selectedOfferId);
-  const completed = offerCandidates.filter((c) => c.chatbot_completed).length;
 
   function selectOffer(id: string) {
     setSelectedOfferId(id);
@@ -210,7 +204,6 @@ export default function Chatbot() {
   const viewTabs: { key: View; label: string; icon: typeof Settings }[] = [
     { key: 'config', label: 'Configuration', icon: Settings },
     { key: 'preview', label: 'Apercu', icon: Eye },
-    { key: 'stats', label: 'Statistiques', icon: BarChart3 },
   ];
 
   return (
@@ -425,23 +418,12 @@ export default function Chatbot() {
 
                     <aside className="lg:sticky lg:top-4 space-y-3">
                       <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-4 py-4">
-                        <h3 className="inline-flex items-center gap-2 text-caption1 font-semibold text-t-fg2 uppercase tracking-wider mb-3">
-                          <ExternalLink className="w-3.5 h-3.5 text-t-fg3" />Actions rapides
-                        </h3>
-                        <div className="space-y-2">
-                          <button
-                            onClick={openCandidateLink}
-                            className="w-full h-8 px-3 text-caption1 font-semibold text-t-fg2 border border-t-stroke2 rounded-fluent hover:bg-t-bg1-hover transition-colors"
-                          >
-                            Tester le parcours candidat
-                          </button>
-                          <button
-                            onClick={() => setView('stats')}
-                            className="w-full h-8 px-3 text-caption1 font-semibold text-t-fg2 border border-t-stroke2 rounded-fluent hover:bg-t-bg1-hover transition-colors"
-                          >
-                            Ouvrir les statistiques
-                          </button>
-                        </div>
+                        <button
+                          onClick={openCandidateLink}
+                          className="w-full h-8 px-3 text-caption1 font-semibold text-t-fg2 border border-t-stroke2 rounded-fluent hover:bg-t-bg1-hover transition-colors"
+                        >
+                          Tester le parcours candidat
+                        </button>
                       </div>
                     </aside>
                   </div>
@@ -564,66 +546,6 @@ export default function Chatbot() {
                       </div>
                     </div>
                     <p className="text-center text-caption2 text-t-fg3 mt-3">Apercu du chatbot tel que le candidat le verra</p>
-                  </div>
-                )}
-
-                {view === 'stats' && (
-                  <div className="max-w-[700px] mx-auto px-3 sm:px-6 py-5 space-y-4">
-                    {/* KPI */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {[
-                        { label: 'Candidats', value: offerCandidates.length, icon: Users },
-                        { label: 'Completes', value: completed, icon: Check },
-                        { label: 'Taux completion', value: offerCandidates.length > 0 ? `${Math.round((completed / offerCandidates.length) * 100)}%` : '0%', icon: BarChart3 },
-                        { label: 'Questions', value: questions.length, icon: MessageSquare },
-                      ].map((s) => (
-                        <div key={s.label} className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-4 py-3">
-                          <div className="flex items-center gap-2 mb-1">
-                            <s.icon className="w-[14px] h-[14px] text-t-fg3" strokeWidth={1.5} />
-                            <span className="text-caption1 text-t-fg3">{s.label}</span>
-                          </div>
-                          <span className="text-subtitle1 font-semibold text-t-fg1">{s.value}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Distribution */}
-                    <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
-                      <h3 className="text-caption1 font-semibold text-t-fg2 uppercase tracking-wider mb-3">Repartition par categorie de tri</h3>
-                      {(['prioritaire', 'a_examiner', 'a_revoir', 'a_ecarter'] as const).map((cat) => {
-                        const count = offerCandidates.filter((c) => c.tri_category === cat).length;
-                        const pct = offerCandidates.length > 0 ? (count / offerCandidates.length) * 100 : 0;
-                        const colors: Record<string, string> = { prioritaire: 'bg-t-success', a_examiner: 'bg-t-brand-80', a_revoir: 'bg-t-warning', a_ecarter: 'bg-t-danger' };
-                        const labels: Record<string, string> = { prioritaire: 'Prioritaires', a_examiner: 'A examiner', a_revoir: 'A revoir', a_ecarter: 'Ecartes' };
-                        return (
-                          <div key={cat} className="flex items-center gap-3 mb-2 last:mb-0">
-                            <span className="text-caption1 text-t-fg2 w-24">{labels[cat]}</span>
-                            <div className="flex-1 h-2 bg-t-bg3 rounded-full overflow-hidden">
-                              <div className={`h-full rounded-full ${colors[cat]} transition-all`} style={{ width: `${pct}%` }} />
-                            </div>
-                            <span className="text-caption1 text-t-fg3 w-8 text-right">{count}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Recent responses */}
-                    <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
-                      <h3 className="text-caption1 font-semibold text-t-fg2 uppercase tracking-wider mb-3">Derniers candidats</h3>
-                      {offerCandidates.length > 0 ? offerCandidates.slice(0, 5).map((c) => (
-                        <div key={c.id} className="flex items-center gap-3 py-2 border-b border-t-stroke3 last:border-b-0">
-                          <div className="w-7 h-7 rounded-full bg-t-brand-160 flex items-center justify-center text-caption2 font-semibold text-t-brand-80">{c.first_name[0]}{c.last_name[0]}</div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-body1 text-t-fg1 truncate">{c.first_name} {c.last_name}</p>
-                          </div>
-                          <span className={`px-1.5 py-px text-caption2 font-medium rounded-sm ${c.chatbot_completed ? 'bg-t-success-bg text-t-success' : 'bg-t-bg4 text-t-fg3'}`}>
-                            {c.chatbot_completed ? 'Termine' : 'Incomplet'}
-                          </span>
-                        </div>
-                      )) : (
-                        <p className="text-caption1 text-t-fg3 text-center py-4">Aucun candidat pour cette offre</p>
-                      )}
-                    </div>
                   </div>
                 )}
               </div>

@@ -51,7 +51,6 @@ export default function CandidateChatbot() {
   const [identity, setIdentity] = useState<IdentityForm>({
     firstName: '', lastName: '', email: '', phone: '', school: '', githubUrl: '', portfolioUrl: '', consent: false,
   });
-  const [cvFile, setCvFile] = useState<File | null>(null);
   const [candidateId, setCandidateId] = useState('');
   const [applicationId, setApplicationId] = useState('');
   const [jobTitle, setJobTitle] = useState('');
@@ -128,9 +127,6 @@ export default function CandidateChatbot() {
       formData.append('githubUrl', identity.githubUrl.trim());
       formData.append('portfolioUrl', identity.portfolioUrl.trim());
       formData.append('consent', 'true');
-      if (cvFile) {
-        formData.append('cv', cvFile);
-      }
 
       const res = await postForm<ApplyResponse>('/api/apply', formData);
       setCandidateId(res.candidateId);
@@ -341,20 +337,6 @@ export default function CandidateChatbot() {
                 />
               </div>
             </div>
-
-            <div>
-              <label className="block text-caption1 text-t-fg2 mb-1">CV (PDF ou DOCX)</label>
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx"
-                onChange={(e) => setCvFile(e.target.files?.[0] ?? null)}
-                className="w-full rounded-fluent border border-t-stroke2 bg-t-bg1 px-3 py-2 text-body1 outline-none file:mr-3 file:rounded-fluent file:border-0 file:bg-t-bg3 file:px-3 file:py-1 file:text-caption1"
-              />
-              {cvFile && (
-                <p className="mt-1 text-caption2 text-t-fg3">Fichier sélectionné: {cvFile.name}</p>
-              )}
-            </div>
-
             <label className="flex items-start gap-2 cursor-pointer">
               <input
                 type="checkbox"

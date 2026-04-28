@@ -50,6 +50,7 @@ public class ChatAnswerAnalysisDTO {
     private double completenessScore; // 0.0 to 1.0
     private List<String> missingInformation;
     private List<String> inconsistencies;
+    private List<String> followUpQuestions;
     private String recommendedAction; // PRIORITY, REVIEW, REJECT
     
     // Constructeurs
@@ -309,6 +310,14 @@ public class ChatAnswerAnalysisDTO {
     
     public void setInconsistencies(List<String> inconsistencies) {
         this.inconsistencies = inconsistencies;
+    }
+
+    public List<String> getFollowUpQuestions() {
+        return followUpQuestions;
+    }
+
+    public void setFollowUpQuestions(List<String> followUpQuestions) {
+        this.followUpQuestions = followUpQuestions;
     }
     
     public String getRecommendedAction() {

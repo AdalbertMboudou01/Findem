@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import { MobileMenuButton } from './Sidebar';
-import GlobalCommandPalette from './GlobalCommandPalette';
 
 export function useMobileSidebar() {
   const [open, setOpen] = useState(false);
@@ -18,7 +17,6 @@ export default function AppLayout() {
       <div className="md:ml-rail flex-1 flex flex-col h-screen overflow-hidden">
         <Outlet context={sidebar} />
       </div>
-      <GlobalCommandPalette />
     </div>
   );
 }

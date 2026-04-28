@@ -30,7 +30,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user) return <Navigate to="/landing" replace />;
+  if (!user) return <Navigate to="/login" replace />;
 
   const requiresOnboarding = !user.onboardingCompleted;
   if (requiresOnboarding && location.pathname !== '/entreprise/setup') {

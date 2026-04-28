@@ -49,4 +49,10 @@ public interface ChatAnswerRepository extends JpaRepository<ChatAnswer, UUID> {
            "FROM ChatAnswer ca WHERE ca.application.applicationId = :applicationId")
     boolean hasCompleteAnswers(@Param("applicationId") UUID applicationId, 
                               @Param("minAnswers") int minAnswers);
+
+    /**
+     * Charge toutes les réponses pour une liste de candidatures en une seule requête
+     */
+    @Query("SELECT ca FROM ChatAnswer ca WHERE ca.application.applicationId IN :applicationIds")
+    List<ChatAnswer> findByApplication_ApplicationIdIn(@Param("applicationIds") List<UUID> applicationIds);
 }

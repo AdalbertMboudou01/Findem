@@ -66,6 +66,7 @@ type BackendChatAnswerSummary = {
   missingInformation?: string[];
   inconsistencies?: string[];
   pointsToConfirm?: string[];
+  followUpQuestions?: string[];
   recruiterGuidance?: string;
   analysisSchema?: {
     version?: string;
@@ -167,6 +168,52 @@ type BackendAnalysisFactFeedback = {
   correctedFinding?: string;
   reviewerComment?: string;
   createdAt?: string;
+};
+
+type BackendAnalysisQualityDimension = {
+  dimension?: string;
+  reviewedFacts?: number;
+  confirmedFacts?: number;
+  correctedFacts?: number;
+  rejectedFacts?: number;
+  precisionScore?: number;
+};
+
+type BackendAnalysisQualityMetrics = {
+  windowDays?: number;
+  generatedAt?: string;
+  feedbackEvents?: number;
+  reviewedFacts?: number;
+  reviewedApplications?: number;
+  confirmedFacts?: number;
+  correctedFacts?: number;
+  rejectedFacts?: number;
+  precisionScore?: number;
+  correctionRate?: number;
+  rejectionRate?: number;
+  byDimension?: BackendAnalysisQualityDimension[];
+};
+
+export type AnalysisQualityMetrics = {
+  windowDays: number;
+  generatedAt: string | null;
+  feedbackEvents: number;
+  reviewedFacts: number;
+  reviewedApplications: number;
+  confirmedFacts: number;
+  correctedFacts: number;
+  rejectedFacts: number;
+  precisionScore: number;
+  correctionRate: number;
+  rejectionRate: number;
+  byDimension: Array<{
+    dimension: string;
+    reviewedFacts: number;
+    confirmedFacts: number;
+    correctedFacts: number;
+    rejectedFacts: number;
+    precisionScore: number;
+  }>;
 };
 
 type BackendApplicationComment = {
@@ -289,6 +336,14 @@ function mapRecommendedActionLabel(action?: string, guidance?: string): string {
   return 'Lecture complementaire recommandee.';
 }
 
+function mapRecommendedActionToStatus(action?: string): CandidateStatus | null {
+  const value = (action || '').toUpperCase();
+  if (value === 'PRIORITY' || value === 'INTERVIEW') return 'retenu_entretien';
+  if (value === 'REVIEW' || value === 'MANUAL_REVIEW') return 'a_revoir_manuellement';
+  if (value === 'REJECT') return 'non_retenu';
+  return null;
+}
+
 function toSlug(title: string) {
   return title
     .toLowerCase()
@@ -392,6 +447,33 @@ export async function bootstrapTestCompany() {
     email: response?.email || null,
     companyId: response?.companyId || null,
     ownerRecruiterId: response?.ownerRecruiterId || null,
+  };
+}
+
+export async function getAnalysisQualityMetrics(days = 30): Promise<AnalysisQualityMetrics> {
+  const safeDays = Math.max(1, Math.min(365, Number.isFinite(days) ? Number(days) : 30));
+  const raw = await getJson<BackendAnalysisQualityMetrics>(`/api/chat-answers/quality-metrics?days=${safeDays}`);
+
+  return {
+    windowDays: Math.max(1, Number(raw?.windowDays || safeDays)),
+    generatedAt: raw?.generatedAt || null,
+    feedbackEvents: Math.max(0, Number(raw?.feedbackEvents || 0)),
+    reviewedFacts: Math.max(0, Number(raw?.reviewedFacts || 0)),
+    reviewedApplications: Math.max(0, Number(raw?.reviewedApplications || 0)),
+    confirmedFacts: Math.max(0, Number(raw?.confirmedFacts || 0)),
+    correctedFacts: Math.max(0, Number(raw?.correctedFacts || 0)),
+    rejectedFacts: Math.max(0, Number(raw?.rejectedFacts || 0)),
+    precisionScore: Math.max(0, Math.min(1, Number(raw?.precisionScore || 0))),
+    correctionRate: Math.max(0, Math.min(1, Number(raw?.correctionRate || 0))),
+    rejectionRate: Math.max(0, Math.min(1, Number(raw?.rejectionRate || 0))),
+    byDimension: (raw?.byDimension || []).map((item) => ({
+      dimension: (item?.dimension || 'general').trim(),
+      reviewedFacts: Math.max(0, Number(item?.reviewedFacts || 0)),
+      confirmedFacts: Math.max(0, Number(item?.confirmedFacts || 0)),
+      correctedFacts: Math.max(0, Number(item?.correctedFacts || 0)),
+      rejectedFacts: Math.max(0, Number(item?.rejectedFacts || 0)),
+      precisionScore: Math.max(0, Math.min(1, Number(item?.precisionScore || 0))),
+    })),
   };
 }
 
@@ -600,21 +682,35 @@ export async function loadRecruitmentData(): Promise<{ offers: Offer[]; candidat
     .map((app) => app.applicationId)
     .filter((appId): appId is string => Boolean(appId));
 
-  await Promise.all(
-    analysisRequests.map(async (appId) => {
-      try {
-        const summary = await getJson<BackendChatAnswerSummary>(`/api/chat-answers/summary/${appId}`);
+  if (analysisRequests.length > 0) {
+    try {
+      const batchResult = await postJson<Record<string, BackendChatAnswerSummary>>(
+        '/api/chat-answers/summary/batch',
+        analysisRequests,
+      );
+      for (const [appId, summary] of Object.entries(batchResult || {})) {
         analysisByApplicationId.set(appId, summary);
-      } catch {
-        // Certaines candidatures n'ont pas encore de réponses exploitables.
       }
-    }),
-  );
+    } catch {
+      // Fallback: appels individuels si le batch échoue
+      await Promise.all(
+        analysisRequests.map(async (appId) => {
+          try {
+            const summary = await getJson<BackendChatAnswerSummary>(`/api/chat-answers/summary/${appId}`);
+            analysisByApplicationId.set(appId, summary);
+          } catch {
+            // Candidature sans réponses exploitables.
+          }
+        }),
+      );
+    }
+  }
 
   const candidates: Candidate[] = (backendCandidates || []).map((item) => {
     const app = candidateToApplication.get(item.candidateId);
     const status = mapCandidateStatus(app?.status?.code || app?.status?.label, item.inPool);
     const analysis = app?.applicationId ? analysisByApplicationId.get(app.applicationId) : null;
+    const aiRecommendedStatus = mapRecommendedActionToStatus(analysis?.recommendedAction);
     const tri = mapTriCategory(status);
 
     const motivationSummary = analysis?.motivationSummary?.trim()
@@ -629,6 +725,7 @@ export async function loadRecruitmentData(): Promise<{ offers: Offer[]; candidat
     const missingInfo = analysis?.missingInformation || [];
     const inconsistencies = analysis?.inconsistencies || analysis?.analysisSchema?.contradictions || [];
     const pointsToConfirm = analysis?.pointsToConfirm || [];
+    const followUpQuestions = analysis?.followUpQuestions || [];
     const projectSummaryParts = [
       ...(mentionedProjects.length > 0 ? [mentionedProjects.join(', ')] : []),
       ...(githubSummary ? [githubSummary] : []),
@@ -670,6 +767,9 @@ export async function loadRecruitmentData(): Promise<{ offers: Offer[]; candidat
       location_assessment: analysis?.locationAssessment?.trim() || '',
       points_forts: strengths,
       points_attention: Array.from(new Set([...missingInfo, ...inconsistencies, ...pointsToConfirm])),
+      follow_up_questions: followUpQuestions,
+      ai_recommended_action: analysis?.recommendedAction?.toUpperCase() || null,
+      ai_recommended_status: aiRecommendedStatus,
       action_recommandee: mapRecommendedActionLabel(analysis?.recommendedAction, analysis?.recruiterGuidance),
       analysis_schema_version: analysis?.analysisSchema?.version?.trim() || null,
       analysis_fallback_used: Boolean(analysis?.analysisSchema?.fallbackUsed),
