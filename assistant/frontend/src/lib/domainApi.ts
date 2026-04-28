@@ -233,11 +233,11 @@ type BackendApplicationActivity = {
   id?: string;
   applicationId?: string;
   companyId?: string;
-  actorUserId?: string;
-  actorRecruiterId?: string;
+  actorId?: string;
+  actorType?: string;
   eventType?: string;
-  title?: string;
-  description?: string;
+  payload?: Record<string, unknown>;
+  visibility?: string;
   createdAt?: string;
 };
 
@@ -935,16 +935,16 @@ export async function createApplicationComment(applicationId: string, content: s
 }
 
 export async function loadApplicationActivities(applicationId: string): Promise<ApplicationActivity[]> {
-  const entries = await getJson<BackendApplicationActivity[]>(`/api/applications/${applicationId}/activities`);
+  const entries = await getJson<BackendApplicationActivity[]>(`/api/applications/${applicationId}/activity`);
   return (entries || []).map((item) => ({
     id: item.id || '',
     application_id: item.applicationId || applicationId,
     company_id: item.companyId || '',
-    actor_user_id: item.actorUserId || null,
-    actor_recruiter_id: item.actorRecruiterId || null,
-    event_type: item.eventType || 'APPLICATION_EVENT',
-    title: item.title || 'Activite',
-    description: item.description || '',
+    actor_id: item.actorId || null,
+    actor_type: (item.actorType as ApplicationActivity['actor_type']) || 'SYSTEM',
+    event_type: (item.eventType as ApplicationActivity['event_type']) || 'STATUS_CHANGED',
+    payload: item.payload || {},
+    visibility: (item.visibility as 'ALL' | 'INTERNAL') || 'ALL',
     created_at: item.createdAt || new Date().toISOString(),
   }));
 }

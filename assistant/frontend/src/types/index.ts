@@ -74,15 +74,27 @@ export interface ApplicationComment {
   updated_at: string | null;
 }
 
+export type ApplicationEventType =
+  | 'COMMENT_ADDED'
+  | 'STATUS_CHANGED'
+  | 'TASK_CREATED'
+  | 'TASK_DONE'
+  | 'INTERVIEW_SCHEDULED'
+  | 'DOCUMENT_ADDED'
+  | 'DECISION_RECORDED'
+  | 'MENTION_TRIGGERED'
+  | 'CHATBOT_COMPLETED'
+  | 'AI_ANALYSIS_DONE';
+
 export interface ApplicationActivity {
   id: string;
   application_id: string;
   company_id: string;
-  actor_user_id: string | null;
-  actor_recruiter_id: string | null;
-  event_type: string;
-  title: string;
-  description: string;
+  actor_id: string | null;
+  actor_type: 'USER' | 'RECRUITER' | 'SYSTEM';
+  event_type: ApplicationEventType;
+  payload: Record<string, unknown>;
+  visibility: 'ALL' | 'INTERNAL';
   created_at: string;
 }
 

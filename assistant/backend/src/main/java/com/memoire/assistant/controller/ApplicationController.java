@@ -1,8 +1,10 @@
 package com.memoire.assistant.controller;
 
 import com.memoire.assistant.model.Application;
+import com.memoire.assistant.model.ApplicationActivity.EventType;
 import com.memoire.assistant.model.Candidate;
 import com.memoire.assistant.service.ApplicationService;
+import com.memoire.assistant.service.ApplicationActivityService;
 import com.memoire.assistant.dto.ApplicationCreateRequest;
 import com.memoire.assistant.model.Job;
 import com.memoire.assistant.model.ApplicationStatus;
@@ -17,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -25,8 +28,13 @@ import java.util.UUID;
 public class ApplicationController {
     @Autowired
     private ApplicationService applicationService;
-        @Autowired
+
+    @Autowired
+    private ApplicationActivityService activityService;
+
+    @Autowired
     private JobRepository jobRepository;
+
     @Autowired
     private CandidateRepository candidateRepository;
 
@@ -58,6 +66,11 @@ public class ApplicationController {
         status.setStatusId(request.getStatusId());
         application.setStatus(status);
         Application savedApplication = applicationService.saveApplication(application);
+
+        activityService.logEvent(savedApplication.getApplicationId(), EventType.STATUS_CHANGED,
+                Map.of("to", status.getStatusId() != null ? status.getStatusId().toString() : "initial",
+                       "label", "Candidature créée"));
+
         return savedApplication;
     }
 
@@ -74,6 +87,13 @@ public class ApplicationController {
         application.setCreatedAt(existing.get().getCreatedAt());
         Application updatedApplication = applicationService.saveApplication(application);
         String nextStatusLabel = updatedApplication.getStatus() != null ? updatedApplication.getStatus().getLabel() : null;
+
+        if (previousStatusLabel != null && !previousStatusLabel.equals(nextStatusLabel)) {
+            activityService.logEvent(id, EventType.STATUS_CHANGED,
+                    Map.of("from", previousStatusLabel != null ? previousStatusLabel : "",
+                           "to", nextStatusLabel != null ? nextStatusLabel : ""));
+        }
+
         return ResponseEntity.ok(updatedApplication);
     }
 

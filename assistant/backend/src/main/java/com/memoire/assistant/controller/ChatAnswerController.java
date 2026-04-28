@@ -5,6 +5,8 @@ import com.memoire.assistant.dto.ChatAnswerDTO;
 import com.memoire.assistant.dto.AnalysisFactFeedbackRequest;
 import com.memoire.assistant.dto.AnalysisFactFeedbackResponse;
 import com.memoire.assistant.dto.AnalysisQualityMetricsDTO;
+import com.memoire.assistant.model.ApplicationActivity.EventType;
+import com.memoire.assistant.service.ApplicationActivityService;
 import com.memoire.assistant.service.ChatAnswerService;
 import com.memoire.assistant.service.AnalysisFactFeedbackService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,6 +36,9 @@ public class ChatAnswerController {
 
     @Autowired
     private AnalysisFactFeedbackService analysisFactFeedbackService;
+
+    @Autowired
+    private ApplicationActivityService activityService;
     
     @PostMapping("/submit")
     @Operation(summary = "Soumettre une réponse du chatbot", description = "Enregistre une réponse du candidat à une question du chatbot")
@@ -76,6 +81,11 @@ public class ChatAnswerController {
             @Parameter(description = "ID de la candidature") @PathVariable UUID applicationId) {
         try {
             ChatAnswerAnalysisDTO analysis = chatAnswerService.analyzeChatAnswers(applicationId);
+            try {
+                activityService.logEvent(applicationId, EventType.AI_ANALYSIS_DONE,
+                        Map.of("completeness", analysis.getCompletenessScore(),
+                               "recommended_action", analysis.getRecommendedAction() != null ? analysis.getRecommendedAction() : ""));
+            } catch (Exception ignored) {}
             return ResponseEntity.ok(analysis);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();

@@ -25,6 +25,7 @@ import {
   Maximize2,
 } from 'lucide-react';
 import { TriBadge, StatusBadge } from '../components/ui/Badge';
+import ActivityTimeline from '../components/ActivityTimeline';
 import type { AnalysisFactFeedback, AnalysisFactFeedbackDecision, ApplicationActivity, ApplicationComment, Candidate, CandidateStatus, Offer } from '../types';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createApplicationComment, loadAnalysisFactFeedback, loadApplicationActivities, loadApplicationComments, loadLatestAnalysisFactFeedback, loadRecruitmentData, setCandidateDecision, submitAnalysisFactFeedback } from '../lib/domainApi';
@@ -825,35 +826,10 @@ export default function CandidateDetail() {
         {activeTab === 'historique' && (
           <div className="max-w-[800px]">
             <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
-              {collaborationError && (
-                <div className="mb-3 px-3 py-2 text-caption1 text-t-danger bg-t-danger-bg border border-t-danger rounded-fluent">
-                  {collaborationError}
-                </div>
-              )}
-              {collaborationLoading ? (
-                <div className="text-center py-8 text-caption1 text-t-fg3">Chargement de l'historique...</div>
+              {c.application_id ? (
+                <ActivityTimeline applicationId={c.application_id} />
               ) : (
-              <div className="space-y-0">
-                {timeline.map((event, i) => (
-                  <div key={i} className="flex items-start gap-3 relative pb-4 last:pb-0">
-                    {i < timeline.length - 1 && (
-                      <div className="absolute left-[7px] top-4 bottom-0 w-[2px] bg-t-stroke3" />
-                    )}
-                    <div className={`w-4 h-4 rounded-full shrink-0 mt-0.5 flex items-center justify-center ${
-                      event.type === 'success' ? 'bg-t-success-bg' : event.type === 'danger' ? 'bg-t-danger-bg' : 'bg-t-bg4'
-                    }`}>
-                      <div className={`w-2 h-2 rounded-full ${
-                        event.type === 'success' ? 'bg-t-success' : event.type === 'danger' ? 'bg-t-danger' : 'bg-t-fg3'
-                      }`} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-body1 text-t-fg1">{event.action}</p>
-                      {event.detail && <p className="text-caption1 text-t-fg3 mt-1">{event.detail}</p>}
-                      <span className="text-caption2 text-t-fg3">{formatDateTime(event.date)}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                <p className="text-center py-8 text-caption1 text-t-fg3">Aucune candidature associée.</p>
               )}
             </div>
           </div>
