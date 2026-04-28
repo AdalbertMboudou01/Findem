@@ -18,6 +18,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.text.Normalizer;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
@@ -65,10 +67,32 @@ public class ChatAnswerService {
     public ChatAnswerAnalysisDTO analyzeChatAnswers(UUID applicationId) {
         Application application = applicationRepository.findById(applicationId)
             .orElseThrow(() -> new RuntimeException("Candidature non trouvée"));
-        
+
+        // Return from DB cache if fresh (< 24h)
+        if (application.getSemanticCache() != null && application.getSemanticCacheAt() != null) {
+            Instant cutoff = Instant.now().minus(24, ChronoUnit.HOURS);
+            if (application.getSemanticCacheAt().isAfter(cutoff)) {
+                try {
+                    return OBJECT_MAPPER.readValue(application.getSemanticCache(), ChatAnswerAnalysisDTO.class);
+                } catch (Exception e) {
+                    log.warn("Semantic cache deserialization failed for {}, re-computing: {}", applicationId, e.getMessage());
+                }
+            }
+        }
+
         List<ChatAnswer> answers = chatAnswerRepository.findByApplication_ApplicationId(applicationId);
-        
-        return analyzeApplicationWithAnswers(application, answers);
+        ChatAnswerAnalysisDTO result = analyzeApplicationWithAnswers(application, answers, true);
+
+        // Persist cache
+        try {
+            application.setSemanticCache(OBJECT_MAPPER.writeValueAsString(result));
+            application.setSemanticCacheAt(Instant.now());
+            applicationRepository.save(application);
+        } catch (Exception e) {
+            log.warn("Could not save semantic cache for {}: {}", applicationId, e.getMessage());
+        }
+
+        return result;
     }
 
     /**
@@ -100,7 +124,8 @@ public class ChatAnswerService {
             List<ChatAnswer> answers = answersByApp.getOrDefault(appId, Collections.emptyList());
             if (answers.isEmpty()) continue;
             try {
-                result.put(appId, analyzeApplicationWithAnswers(application, answers));
+                // Batch mode: rules-based only (no LLM), so the list loads instantly
+                result.put(appId, analyzeApplicationWithAnswers(application, answers, false));
             } catch (Exception e) {
                 log.warn("Analyse batch ignoree pour {}: {}", appId, e.getMessage());
             }
@@ -108,7 +133,7 @@ public class ChatAnswerService {
         return result;
     }
 
-    private ChatAnswerAnalysisDTO analyzeApplicationWithAnswers(Application application, List<ChatAnswer> answers) {
+    private ChatAnswerAnalysisDTO analyzeApplicationWithAnswers(Application application, List<ChatAnswer> answers, boolean includeLlm) {
         ChatAnswerAnalysisDTO analysis = new ChatAnswerAnalysisDTO(application.getApplicationId().toString());
 
         analyzeMotivation(answers, analysis);
@@ -116,7 +141,9 @@ public class ChatAnswerService {
         enrichWithGitHubAndPortfolio(application, analysis);
         analyzeAvailability(answers, analysis);
         analyzeLocation(answers, analysis, application);
-        extractConstrainedSemanticFacts(answers, analysis);
+        if (includeLlm) {
+            extractConstrainedSemanticFacts(answers, analysis);
+        }
         calculateCompletenessScore(answers, analysis);
         detectInconsistencies(answers, analysis);
         buildQualitativeSummary(analysis);

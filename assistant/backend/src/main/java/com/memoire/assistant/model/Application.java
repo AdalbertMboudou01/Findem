@@ -1,5 +1,6 @@
 package com.memoire.assistant.model;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import jakarta.persistence.Id;
@@ -7,6 +8,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.JoinColumn;
+import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
 
@@ -30,6 +32,12 @@ public class Application {
     private ApplicationStatus status;
 
     private Date createdAt;
+
+    @Column(name = "semantic_cache", columnDefinition = "JSONB")
+    private String semanticCache;
+
+    @Column(name = "semantic_cache_at")
+    private Instant semanticCacheAt;
 
     // Getters & Setters
     public UUID getApplicationId() {
@@ -70,5 +78,21 @@ public class Application {
     
     public void setCreatedAt(Date createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getSemanticCache() {
+        return semanticCache;
+    }
+
+    public void setSemanticCache(String semanticCache) {
+        this.semanticCache = semanticCache;
+    }
+
+    public Instant getSemanticCacheAt() {
+        return semanticCacheAt;
+    }
+
+    public void setSemanticCacheAt(Instant semanticCacheAt) {
+        this.semanticCacheAt = semanticCacheAt;
     }
 }
