@@ -19,6 +19,7 @@ import {
   Download,
   StickyNote,
   History,
+  ListTodo,
   ZoomIn,
   ZoomOut,
   Maximize2,
@@ -26,6 +27,7 @@ import {
 import { TriBadge, StatusBadge } from '../components/ui/Badge';
 import ActivityTimeline from '../components/ActivityTimeline';
 import CommentsSection from '../components/CommentsSection';
+import TasksSection from '../components/TasksSection';
 import type { AnalysisFactFeedback, AnalysisFactFeedbackDecision, Candidate, CandidateStatus, Offer } from '../types';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadAnalysisFactFeedback, loadLatestAnalysisFactFeedback, loadRecruitmentData, setCandidateDecision, submitAnalysisFactFeedback } from '../lib/domainApi';
@@ -79,7 +81,7 @@ export function CandidateEmpty() {
   );
 }
 
-type DetailTab = 'synthese' | 'chatbot' | 'cv' | 'notes' | 'historique';
+type DetailTab = 'synthese' | 'chatbot' | 'cv' | 'notes' | 'taches' | 'historique';
 
 export default function CandidateDetail() {
   const { id } = useParams<{ id: string }>();
@@ -293,6 +295,7 @@ export default function CandidateDetail() {
     { key: 'chatbot', label: 'Reponses', icon: MessageCircle },
     { key: 'cv', label: 'CV', icon: Download },
     { key: 'notes', label: 'Notes', icon: StickyNote },
+    { key: 'taches', label: 'Tâches', icon: ListTodo },
     { key: 'historique', label: 'Historique', icon: History },
   ];
 
@@ -674,6 +677,18 @@ export default function CandidateDetail() {
           <div className="max-w-[800px]">
             {c.application_id ? (
               <CommentsSection applicationId={c.application_id} />
+            ) : (
+              <p className="text-center py-8 text-caption1 text-t-fg3">Aucune candidature associée.</p>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'taches' && (
+          <div className="max-w-[800px]">
+            {c.application_id ? (
+              <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
+                <TasksSection applicationId={c.application_id} />
+              </div>
             ) : (
               <p className="text-center py-8 text-caption1 text-t-fg3">Aucune candidature associée.</p>
             )}

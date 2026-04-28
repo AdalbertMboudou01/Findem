@@ -100,6 +100,22 @@ export interface ApplicationActivity {
   created_at: string;
 }
 
+export interface ApplicationTask {
+  id: string;
+  application_id: string;
+  company_id: string;
+  title: string;
+  description: string | null;
+  assignee_id: string | null;
+  due_date: string | null;
+  status: 'TODO' | 'IN_PROGRESS' | 'DONE';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  overdue: boolean;
+}
+
 export interface InAppNotification {
   id: string;
   type: string;

@@ -1034,3 +1034,77 @@ export async function saveJobQuotaSettings(offerId: string, settings: JobQuotaSe
     autoClose: settings.autoClose,
   });
 }
+
+// ─── Tasks ─────────────────────────────────────────────────────────────────
+
+export type BackendTask = {
+  id: string;
+  applicationId: string;
+  companyId: string;
+  title: string;
+  description: string | null;
+  assigneeId: string | null;
+  dueDate: string | null;
+  status: 'TODO' | 'IN_PROGRESS' | 'DONE';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  overdue: boolean;
+};
+
+function mapTask(t: BackendTask) {
+  return {
+    id: t.id,
+    application_id: t.applicationId,
+    company_id: t.companyId,
+    title: t.title,
+    description: t.description ?? null,
+    assignee_id: t.assigneeId ?? null,
+    due_date: t.dueDate ?? null,
+    status: t.status,
+    priority: t.priority,
+    created_by: t.createdBy,
+    created_at: t.createdAt,
+    updated_at: t.updatedAt,
+    overdue: t.overdue,
+  };
+}
+
+export async function loadApplicationTasks(applicationId: string) {
+  const list = await getJson<BackendTask[]>(`/api/applications/${applicationId}/tasks`);
+  return list.map(mapTask);
+}
+
+export async function createApplicationTask(
+  applicationId: string,
+  payload: {
+    title: string;
+    description?: string;
+    assigneeId?: string;
+    dueDate?: string;
+    priority?: string;
+  }
+) {
+  const created = await postJson<BackendTask>(`/api/applications/${applicationId}/tasks`, payload);
+  return mapTask(created);
+}
+
+export async function updateTaskStatus(taskId: string, status: 'TODO' | 'IN_PROGRESS' | 'DONE') {
+  const updated = await patchJson<BackendTask>(`/api/tasks/${taskId}/status`, { status });
+  return mapTask(updated);
+}
+
+export async function deleteApplicationTask(taskId: string): Promise<void> {
+  await deleteJson(`/api/tasks/${taskId}`);
+}
+
+export async function loadMyTasks() {
+  const list = await getJson<BackendTask[]>('/api/tasks/mine');
+  return list.map(mapTask);
+}
+
+export async function loadOverdueTasks() {
+  const list = await getJson<BackendTask[]>('/api/tasks/overdue');
+  return list.map(mapTask);
+}
