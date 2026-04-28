@@ -116,6 +116,27 @@ export interface ApplicationTask {
   overdue: boolean;
 }
 
+export interface DecisionInput {
+  id: string;
+  application_id: string;
+  author_id: string;
+  sentiment: 'FAVORABLE' | 'RESERVE' | 'DEFAVORABLE';
+  comment: string | null;
+  confidence: number | null;
+  created_at: string;
+}
+
+export interface ApplicationDecision {
+  id?: string;
+  application_id: string;
+  final_status?: string;
+  rationale?: string;
+  decided_by?: string;
+  decided_at?: string;
+  inputs: DecisionInput[];
+  blocking_reason?: string;
+}
+
 export interface InAppNotification {
   id: string;
   type: string;

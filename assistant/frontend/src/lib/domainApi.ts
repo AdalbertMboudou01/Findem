@@ -1,5 +1,5 @@
 import { deleteJson, getJson, postJson, putJson, patchJson } from './api';
-import type { AnalysisFact, AnalysisFactFeedback, AnalysisFactFeedbackDecision, ApplicationActivity, ApplicationComment, Candidate, CandidateStatus, ChatbotQuestion, InAppNotification, Offer, OfferStatus, TriCategory } from '../types';
+import type { AnalysisFact, AnalysisFactFeedback, AnalysisFactFeedbackDecision, ApplicationActivity, ApplicationComment, ApplicationDecision, DecisionInput, Candidate, CandidateStatus, ChatbotQuestion, InAppNotification, Offer, OfferStatus, TriCategory } from '../types';
 
 type BackendCandidate = {
   candidateId: string;
@@ -1107,4 +1107,48 @@ export async function loadMyTasks() {
 export async function loadOverdueTasks() {
   const list = await getJson<BackendTask[]>('/api/tasks/overdue');
   return list.map(mapTask);
+}
+// ─── Decisions ─────────────────────────────────────────────────────────────
+
+type BackendDecisionInput = {
+  id: string; applicationId: string; authorId: string;
+  sentiment: string; comment: string | null; confidence: number | null; createdAt: string;
+};
+type BackendDecision = {
+  id?: string; applicationId: string; finalStatus?: string; rationale?: string;
+  decidedBy?: string; decidedAt?: string; inputs: BackendDecisionInput[]; blockingReason?: string;
+};
+
+function mapDecisionInput(d: BackendDecisionInput): DecisionInput {
+  return { id: d.id, application_id: d.applicationId, author_id: d.authorId,
+    sentiment: d.sentiment as DecisionInput['sentiment'], comment: d.comment,
+    confidence: d.confidence, created_at: d.createdAt };
+}
+
+function mapDecision(d: BackendDecision): ApplicationDecision {
+  return { id: d.id, application_id: d.applicationId, final_status: d.finalStatus,
+    rationale: d.rationale, decided_by: d.decidedBy, decided_at: d.decidedAt,
+    inputs: (d.inputs ?? []).map(mapDecisionInput), blocking_reason: d.blockingReason };
+}
+
+export async function loadApplicationDecision(applicationId: string): Promise<ApplicationDecision> {
+  const res = await getJson<BackendDecision>(`/api/applications/${applicationId}/decision`);
+  return mapDecision(res);
+}
+
+export async function addDecisionInput(
+  applicationId: string,
+  payload: { sentiment: string; comment?: string; confidence?: number }
+): Promise<DecisionInput> {
+  const res = await postJson<BackendDecisionInput>(`/api/applications/${applicationId}/decision-inputs`, payload);
+  return mapDecisionInput(res);
+}
+
+export async function recordFinalDecision(
+  applicationId: string,
+  finalStatus: string,
+  rationale?: string
+): Promise<ApplicationDecision> {
+  const res = await postJson<BackendDecision>(`/api/applications/${applicationId}/decision`, { finalStatus, rationale });
+  return mapDecision(res);
 }

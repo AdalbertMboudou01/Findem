@@ -20,6 +20,7 @@ import {
   StickyNote,
   History,
   ListTodo,
+  Scale,
   ZoomIn,
   ZoomOut,
   Maximize2,
@@ -28,6 +29,7 @@ import { TriBadge, StatusBadge } from '../components/ui/Badge';
 import ActivityTimeline from '../components/ActivityTimeline';
 import CommentsSection from '../components/CommentsSection';
 import TasksSection from '../components/TasksSection';
+import DecisionSection from '../components/DecisionSection';
 import type { AnalysisFactFeedback, AnalysisFactFeedbackDecision, Candidate, CandidateStatus, Offer } from '../types';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadAnalysisFactFeedback, loadLatestAnalysisFactFeedback, loadRecruitmentData, setCandidateDecision, submitAnalysisFactFeedback } from '../lib/domainApi';
@@ -81,7 +83,7 @@ export function CandidateEmpty() {
   );
 }
 
-type DetailTab = 'synthese' | 'chatbot' | 'cv' | 'notes' | 'taches' | 'historique';
+type DetailTab = 'synthese' | 'chatbot' | 'cv' | 'notes' | 'taches' | 'decision' | 'historique';
 
 export default function CandidateDetail() {
   const { id } = useParams<{ id: string }>();
@@ -296,6 +298,7 @@ export default function CandidateDetail() {
     { key: 'cv', label: 'CV', icon: Download },
     { key: 'notes', label: 'Notes', icon: StickyNote },
     { key: 'taches', label: 'Tâches', icon: ListTodo },
+    { key: 'decision', label: 'Décision', icon: Scale },
     { key: 'historique', label: 'Historique', icon: History },
   ];
 
@@ -688,6 +691,18 @@ export default function CandidateDetail() {
             {c.application_id ? (
               <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
                 <TasksSection applicationId={c.application_id} />
+              </div>
+            ) : (
+              <p className="text-center py-8 text-caption1 text-t-fg3">Aucune candidature associée.</p>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'decision' && (
+          <div className="max-w-[800px]">
+            {c.application_id ? (
+              <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
+                <DecisionSection applicationId={c.application_id} />
               </div>
             ) : (
               <p className="text-center py-8 text-caption1 text-t-fg3">Aucune candidature associée.</p>
