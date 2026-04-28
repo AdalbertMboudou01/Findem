@@ -7,6 +7,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.FetchType;
 import java.util.UUID;
 
 @Entity
@@ -16,9 +17,13 @@ public class Recruiter {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID recruiterId;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id")
     private Company company;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "department_id")
+    private Department department;
 
     private String email;
     private String name;
@@ -81,5 +86,13 @@ public class Recruiter {
     
     public void setAuthUserId(UUID authUserId) {
         this.authUserId = authUserId;
+    }
+
+    public Department getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(Department department) {
+        this.department = department;
     }
 }

@@ -302,6 +302,16 @@ export type CompanyRecruiterMember = {
   email: string;
   role: string;
   status: string;
+  departmentId: string | null;
+  departmentName: string | null;
+};
+
+export type Department = {
+  departmentId: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  memberCount: number;
 };
 
 function normalizeOfferStatus(raw?: string): OfferStatus {
@@ -613,13 +623,15 @@ export async function assertCompanyProfileComplete(): Promise<void> {
 }
 
 export async function loadCompanyMembers(): Promise<CompanyRecruiterMember[]> {
-  const recruiters = await getJson<BackendRecruiter[]>('/api/recruiters');
-  return (recruiters || []).map((r) => ({
+  const members = await getJson<any[]>('/api/departments/members');
+  return (members || []).map((r) => ({
     recruiterId: r.recruiterId,
     name: r.name || '',
     email: r.email || '',
     role: (r.role || 'RECRUITER').toUpperCase(),
     status: r.status || '',
+    departmentId: r.departmentId || null,
+    departmentName: r.departmentName || null,
   }));
 }
 
@@ -649,6 +661,30 @@ export async function inviteRecruiter(payload: { email: string; role: 'RECRUITER
     createdAt: created.createdAt || null,
     invitationToken: created.invitationToken || null,
   };
+}
+
+export async function loadDepartments(): Promise<Department[]> {
+  return (await getJson<Department[]>('/api/departments')) || [];
+}
+
+export async function createDepartment(payload: { name: string; description?: string }): Promise<Department> {
+  return postJson<Department>('/api/departments', payload);
+}
+
+export async function updateDepartment(departmentId: string, payload: { name: string; description?: string }): Promise<Department> {
+  return putJson<Department>(`/api/departments/${departmentId}`, payload);
+}
+
+export async function deleteDepartment(departmentId: string): Promise<void> {
+  await deleteJson(`/api/departments/${departmentId}`);
+}
+
+export async function assignMemberToDepartment(departmentId: string, recruiterId: string): Promise<void> {
+  await putJson(`/api/departments/${departmentId}/members/${recruiterId}`, {});
+}
+
+export async function removeMemberFromDepartment(departmentId: string, recruiterId: string): Promise<void> {
+  await deleteJson(`/api/departments/${departmentId}/members/${recruiterId}`);
 }
 
 export async function setCandidateDecision(candidateId: string, status: CandidateStatus) {
