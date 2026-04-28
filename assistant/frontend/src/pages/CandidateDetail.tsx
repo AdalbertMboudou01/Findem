@@ -12,6 +12,7 @@ import {
   Eye,
   XCircle,
   ChevronLeft,
+  ChevronDown,
   FileText,
   Code2,
   MessageSquare,
@@ -24,6 +25,8 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  Users2,
+  Briefcase,
 } from 'lucide-react';
 import { TriBadge, StatusBadge } from '../components/ui/Badge';
 import ActivityTimeline from '../components/ActivityTimeline';
@@ -83,7 +86,7 @@ export function CandidateEmpty() {
   );
 }
 
-type DetailTab = 'synthese' | 'chatbot' | 'cv' | 'notes' | 'taches' | 'decision' | 'historique';
+type DetailTab = 'synthese' | 'cv' | 'collaboration' | 'decision' | 'historique';
 
 export default function CandidateDetail() {
   const { id } = useParams<{ id: string }>();
@@ -97,6 +100,7 @@ export default function CandidateDetail() {
   const [chatbotResponses, setChatbotResponses] = useState<{ question: string; answer: string }[]>([]);
   const [chatbotCompletedAt, setChatbotCompletedAt] = useState<string | null>(null);
   const [chatbotLoading, setChatbotLoading] = useState(false);
+  const [showChatbotResponses, setShowChatbotResponses] = useState<boolean>(false);
   const [factFeedback, setFactFeedback] = useState<AnalysisFactFeedback[]>([]);
   const [latestFactFeedback, setLatestFactFeedback] = useState<AnalysisFactFeedback[]>([]);
   const [factFeedbackError, setFactFeedbackError] = useState('');
@@ -294,10 +298,8 @@ export default function CandidateDetail() {
 
   const tabs: { key: DetailTab; label: string; icon: typeof FileText }[] = [
     { key: 'synthese', label: 'Synthese', icon: FileText },
-    { key: 'chatbot', label: 'Reponses', icon: MessageCircle },
     { key: 'cv', label: 'CV', icon: Download },
-    { key: 'notes', label: 'Notes', icon: StickyNote },
-    { key: 'taches', label: 'Tâches', icon: ListTodo },
+    { key: 'collaboration', label: 'Collaboration', icon: Users2 },
     { key: 'decision', label: 'Décision', icon: Scale },
     { key: 'historique', label: 'Historique', icon: History },
   ];
@@ -328,6 +330,12 @@ export default function CandidateDetail() {
             {c.first_name[0]}{c.last_name[0]}
           </div>
           <div className="flex-1 min-w-0">
+            {c.offer_id && offers.find(o => o.id === c.offer_id) && (
+              <div className="flex items-center gap-1 mb-1 text-caption2 text-t-fg3">
+                <Briefcase className="w-3 h-3" />
+                <span>{offers.find(o => o.id === c.offer_id)?.title}</span>
+              </div>
+            )}
             <div className="flex items-center gap-2.5 flex-wrap">
               <h2 className="text-subtitle2 font-semibold text-t-fg1">{c.first_name} {c.last_name}</h2>
               <TriBadge category={c.tri_category} />
@@ -647,51 +655,62 @@ export default function CandidateDetail() {
                 <p className="text-caption1 text-t-fg3 mt-4">{c.location_assessment}</p>
               )}
             </div>
-          </div>
-        )}
 
-        {activeTab === 'chatbot' && (
-          <div className="max-w-[800px] space-y-3">
-            {chatbotLoading ? (
-              <div className="text-center py-12 text-caption1 text-t-fg3">Chargement des reponses...</div>
-            ) : chatbotResponses && chatbotResponses.length > 0 ? (
-              chatbotResponses.map((r, i) => (
-                <div key={i} className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="w-6 h-6 rounded-full bg-t-brand-160 flex items-center justify-center shrink-0 mt-0.5">
-                      <MessageCircle className="w-3 h-3 text-t-brand-80" />
-                    </div>
-                    <p className="text-caption1 font-semibold text-t-fg2">{r.question}</p>
-                  </div>
-                  <div className="ml-9">
-                    <p className="text-body1 text-t-fg1 leading-relaxed">{r.answer}</p>
-                  </div>
+            {(chatbotLoading || (chatbotResponses && chatbotResponses.length > 0)) && (
+              <div>
+                <div
+                  className="flex items-center gap-2 cursor-pointer py-2"
+                  onClick={() => setShowChatbotResponses((v) => !v)}
+                >
+                  <hr className="flex-1 border-t border-t-stroke3" />
+                  <span className="text-caption1 font-semibold text-t-fg2 shrink-0">Réponses candidat</span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-t-fg3 transition-transform shrink-0 ${showChatbotResponses ? '' : '-rotate-90'}`}
+                  />
                 </div>
-              ))
-            ) : (
-              <div className="text-center py-12 text-caption1 text-t-fg3">Aucune reponse chatbot</div>
+                {showChatbotResponses && (
+                  <div className="space-y-3 mt-1">
+                    {chatbotLoading ? (
+                      <div className="text-center py-6 text-caption1 text-t-fg3">Chargement des reponses...</div>
+                    ) : (
+                      chatbotResponses.map((r, i) => (
+                        <div key={i} className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
+                          <div className="flex items-start gap-3 mb-3">
+                            <div className="w-6 h-6 rounded-full bg-t-brand-160 flex items-center justify-center shrink-0 mt-0.5">
+                              <MessageCircle className="w-3 h-3 text-t-brand-80" />
+                            </div>
+                            <p className="text-caption1 font-semibold text-t-fg2">{r.question}</p>
+                          </div>
+                          <div className="ml-9">
+                            <p className="text-body1 text-t-fg1 leading-relaxed">{r.answer}</p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
 
         {activeTab === 'cv' && <CvViewer candidate={c} />}
 
-        {activeTab === 'notes' && (
-          <div className="max-w-[800px]">
+        {activeTab === 'collaboration' && (
+          <div className="max-w-[800px] space-y-6">
             {c.application_id ? (
-              <CommentsSection applicationId={c.application_id} />
-            ) : (
-              <p className="text-center py-8 text-caption1 text-t-fg3">Aucune candidature associée.</p>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'taches' && (
-          <div className="max-w-[800px]">
-            {c.application_id ? (
-              <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
-                <TasksSection applicationId={c.application_id} />
-              </div>
+              <>
+                <div>
+                  <h3 className="text-caption1 font-semibold text-t-fg2 uppercase tracking-wide mb-3">Commentaires internes</h3>
+                  <CommentsSection applicationId={c.application_id} />
+                </div>
+                <div className="border-t border-t-stroke3 pt-6">
+                  <h3 className="text-caption1 font-semibold text-t-fg2 uppercase tracking-wide mb-3">Tâches</h3>
+                  <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
+                    <TasksSection applicationId={c.application_id} />
+                  </div>
+                </div>
+              </>
             ) : (
               <p className="text-center py-8 text-caption1 text-t-fg3">Aucune candidature associée.</p>
             )}

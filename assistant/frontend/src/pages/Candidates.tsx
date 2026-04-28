@@ -197,6 +197,11 @@ export default function Candidates() {
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <TriBadge category={c.tri_category} />
+                      {c.offer_id && offers.find(o => o.id === c.offer_id) && (
+                        <span className="text-caption2 text-t-fg-disabled truncate max-w-[160px]">
+                          {offers.find(o => o.id === c.offer_id)?.title.split(' ').slice(0, 3).join(' ')}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </Link>

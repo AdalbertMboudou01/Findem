@@ -28,7 +28,7 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { to: '/', icon: LayoutDashboard, label: 'Activite', section: 'pilotage', badge: 'unread' },
+  { to: '/', icon: LayoutDashboard, label: 'Accueil', section: 'pilotage', badge: 'unread' },
   { to: '/offers', icon: Briefcase, label: 'Offres', section: 'pilotage' },
   { to: '/candidates', icon: Users, label: 'Candidats', matchPrefix: '/candidates', section: 'pilotage' },
   { to: '/team-views', icon: LayoutList, label: "Vues équipe", section: 'pilotage' },
