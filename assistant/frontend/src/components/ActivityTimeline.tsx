@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { loadApplicationActivities } from '../../lib/domainApi';
-import type { ApplicationActivity, ApplicationEventType } from '../../types';
+import { loadApplicationActivities } from '../lib/domainApi';
+import type { ApplicationActivity, ApplicationEventType } from '../types';
 
 // ─── Config visuelle par type d'événement ────────────────────────────────────
 

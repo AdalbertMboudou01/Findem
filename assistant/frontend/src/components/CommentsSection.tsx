@@ -4,8 +4,8 @@ import {
   createApplicationComment,
   deleteApplicationComment,
   loadApplicationComments,
-} from '../../lib/domainApi';
-import type { ApplicationComment } from '../../types';
+} from '../lib/domainApi';
+import type { ApplicationComment } from '../types';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
