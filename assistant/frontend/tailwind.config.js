@@ -5,7 +5,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        sans: ['Simonetta', 'Georgia', 'Cambria', 'serif'],
       },
       fontSize: {
         'caption2': ['clamp(11px, 10.4px + 0.08vw, 12px)', '16px'],
