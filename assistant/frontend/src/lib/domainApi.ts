@@ -312,16 +312,25 @@ function normalizeOfferStatus(raw?: string): OfferStatus {
 
 function mapCandidateStatus(statusCode?: string, inPool?: boolean): CandidateStatus {
   const code = (statusCode || '').toLowerCase();
-  if (inPool || code.includes('pool') || code.includes('vivier')) return 'vivier';
-  if (code.includes('entretien') || code.includes('interview') || code.includes('retain')) return 'retenu_entretien';
-  if (code.includes('reject') || code.includes('non_retenu') || code.includes('refus')) return 'non_retenu';
-  if (code.includes('review') || code.includes('revoir')) return 'a_revoir_manuellement';
-  return 'en_attente';
+  if (inPool || code.includes('vivier')) return 'vivier';
+  if (code === 'embauche') return 'embauche';
+  if (code === 'retenu') return 'retenu';
+  if (code === 'entretien') return 'entretien';
+  if (code === 'en_attente_avis') return 'en_attente_avis';
+  if (code === 'en_etude') return 'en_etude';
+  if (code === 'nouveau') return 'nouveau';
+  if (code === 'non_retenu' || code.includes('refus') || code.includes('reject')) return 'non_retenu';
+  // Legacy
+  if (code === 'retenu_entretien' || (code.includes('entretien') && code.includes('retain'))) return 'retenu_entretien';
+  if (code === 'a_revoir_manuellement' || code.includes('revoir')) return 'a_revoir_manuellement';
+  if (code === 'en_attente') return 'en_attente';
+  return 'nouveau';
 }
 
 function mapTriCategory(status: CandidateStatus): TriCategory {
-  if (status === 'retenu_entretien') return 'prioritaire';
-  if (status === 'a_revoir_manuellement' || status === 'vivier') return 'a_revoir';
+  if (status === 'retenu' || status === 'embauche' || status === 'retenu_entretien') return 'prioritaire';
+  if (status === 'entretien' || status === 'en_attente_avis') return 'a_examiner';
+  if (status === 'en_etude' || status === 'vivier' || status === 'a_revoir_manuellement') return 'a_revoir';
   if (status === 'non_retenu') return 'a_ecarter';
   return 'a_examiner';
 }
@@ -339,8 +348,8 @@ function mapRecommendedActionLabel(action?: string, guidance?: string): string {
 
 function mapRecommendedActionToStatus(action?: string): CandidateStatus | null {
   const value = (action || '').toUpperCase();
-  if (value === 'PRIORITY' || value === 'INTERVIEW') return 'retenu_entretien';
-  if (value === 'REVIEW' || value === 'MANUAL_REVIEW') return 'a_revoir_manuellement';
+  if (value === 'PRIORITY' || value === 'INTERVIEW') return 'entretien';
+  if (value === 'REVIEW' || value === 'MANUAL_REVIEW') return 'en_etude';
   if (value === 'REJECT') return 'non_retenu';
   return null;
 }
@@ -356,18 +365,18 @@ function toSlug(title: string) {
 
 function mapStatusToCode(status: CandidateStatus) {
   switch (status) {
-    case 'retenu_entretien':
-      return { code: 'retenu_entretien', label: 'Retenu entretien' };
-    case 'a_revoir_manuellement':
-      return { code: 'a_revoir_manuellement', label: 'A revoir manuellement' };
-    case 'non_retenu':
-      return { code: 'non_retenu', label: 'Non retenu' };
-    case 'en_attente':
-      return { code: 'en_attente', label: 'En attente' };
-    case 'vivier':
-      return { code: 'vivier', label: 'A revoir manuellement' };
-    default:
-      return { code: 'en_attente', label: 'En attente' };
+    case 'nouveau':           return { code: 'nouveau',           label: 'Nouveau' };
+    case 'en_etude':          return { code: 'en_etude',          label: 'En étude' };
+    case 'en_attente_avis':   return { code: 'en_attente_avis',   label: 'Attente d\'avis' };
+    case 'entretien':         return { code: 'entretien',         label: 'Entretien' };
+    case 'retenu':            return { code: 'retenu',            label: 'Retenu' };
+    case 'embauche':          return { code: 'embauche',          label: 'Embauché' };
+    case 'non_retenu':        return { code: 'non_retenu',        label: 'Non retenu' };
+    case 'vivier':            return { code: 'vivier',            label: 'Vivier' };
+    case 'retenu_entretien':  return { code: 'retenu_entretien',  label: 'Retenu entretien' };
+    case 'a_revoir_manuellement': return { code: 'a_revoir_manuellement', label: 'A revoir manuellement' };
+    case 'en_attente':        return { code: 'en_attente',        label: 'En attente' };
+    default:                  return { code: 'nouveau',           label: 'Nouveau' };
   }
 }
 
@@ -1151,6 +1160,14 @@ export async function recordFinalDecision(
 ): Promise<ApplicationDecision> {
   const res = await postJson<BackendDecision>(`/api/applications/${applicationId}/decision`, { finalStatus, rationale });
   return mapDecision(res);
+}
+
+export async function loadAllowedTransitions(applicationId: string): Promise<string[]> {
+  try {
+    return await getJson<string[]>(`/api/applications/${applicationId}/allowed-transitions`);
+  } catch {
+    return [];
+  }
 }
 
 // ─── Team Views ─────────────────────────────────────────────────────────────

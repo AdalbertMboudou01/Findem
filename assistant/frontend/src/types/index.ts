@@ -1,11 +1,18 @@
 export type TriCategory = 'prioritaire' | 'a_examiner' | 'a_revoir' | 'a_ecarter';
 
 export type CandidateStatus =
-  | 'retenu_entretien'
-  | 'a_revoir_manuellement'
+  | 'nouveau'
+  | 'en_etude'
+  | 'en_attente_avis'
+  | 'entretien'
+  | 'retenu'
+  | 'embauche'
   | 'non_retenu'
   | 'vivier'
-  | 'en_attente';
+  // Legacy (kept for mapping compatibility)
+  | 'en_attente'
+  | 'a_revoir_manuellement'
+  | 'retenu_entretien';
 
 export type OfferStatus = 'ouvert' | 'cloture';
 

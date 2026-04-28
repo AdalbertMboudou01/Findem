@@ -1,4 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
+import React from 'react';
 import {
   Mail,
   Phone,
@@ -35,7 +36,7 @@ import TasksSection from '../components/TasksSection';
 import DecisionSection from '../components/DecisionSection';
 import type { AnalysisFactFeedback, AnalysisFactFeedbackDecision, Candidate, CandidateStatus, Offer } from '../types';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { loadAnalysisFactFeedback, loadLatestAnalysisFactFeedback, loadRecruitmentData, setCandidateDecision, submitAnalysisFactFeedback } from '../lib/domainApi';
+import { loadAnalysisFactFeedback, loadAllowedTransitions, loadLatestAnalysisFactFeedback, loadRecruitmentData, setCandidateDecision, submitAnalysisFactFeedback } from '../lib/domainApi';
 import { getBlob, getJson } from '../lib/api';
 
 type ChatAnswerApi = {
@@ -45,11 +46,15 @@ type ChatAnswerApi = {
   createdAt?: string;
 };
 
-const statusActions: { status: CandidateStatus; label: string; icon: typeof UserCheck; cls: string }[] = [
-  { status: 'retenu_entretien', label: 'Retenir', icon: UserCheck, cls: 'bg-t-success text-white' },
-  { status: 'a_revoir_manuellement', label: 'A revoir', icon: Eye, cls: 'bg-t-warning text-white' },
-  { status: 'non_retenu', label: 'Ecarter', icon: XCircle, cls: 'bg-t-danger text-white' },
-];
+const TRANSITION_CONFIG: Record<string, { label: string; icon: typeof UserCheck; cls: string }> = {
+  en_etude:         { label: 'Étudier',       icon: Eye,           cls: 'bg-blue-500 text-white' },
+  en_attente_avis:  { label: 'Demander avis', icon: MessageSquare, cls: 'bg-purple-500 text-white' },
+  entretien:        { label: 'Entretien',      icon: UserCheck,     cls: 'bg-t-success text-white' },
+  retenu:           { label: 'Retenir',        icon: UserCheck,     cls: 'bg-green-600 text-white' },
+  embauche:         { label: 'Embauché',       icon: CheckCircle2,  cls: 'bg-green-800 text-white' },
+  non_retenu:       { label: 'Écarter',        icon: XCircle,       cls: 'bg-t-danger text-white' },
+  vivier:           { label: 'Vivier',         icon: Clock,         cls: 'bg-yellow-500 text-white' },
+};
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -67,10 +72,16 @@ function formatDateTime(iso: string) {
 }
 
 function labelForStatus(status: CandidateStatus) {
+  if (status === 'nouveau') return 'Nouveau';
+  if (status === 'en_etude') return 'En étude';
+  if (status === 'en_attente_avis') return 'Attente avis';
+  if (status === 'entretien') return 'Entretien';
+  if (status === 'retenu') return 'Retenu';
+  if (status === 'embauche') return 'Embauché';
+  if (status === 'non_retenu') return 'Non retenu';
+  if (status === 'vivier') return 'Vivier';
   if (status === 'retenu_entretien') return 'Retenir';
   if (status === 'a_revoir_manuellement') return 'A revoir';
-  if (status === 'non_retenu') return 'Ecarter';
-  if (status === 'vivier') return 'Vivier';
   return 'En attente';
 }
 
@@ -105,6 +116,7 @@ export default function CandidateDetail() {
   const [latestFactFeedback, setLatestFactFeedback] = useState<AnalysisFactFeedback[]>([]);
   const [factFeedbackError, setFactFeedbackError] = useState('');
   const [factDrafts, setFactDrafts] = useState<Record<string, { decision: AnalysisFactFeedbackDecision; correctedFinding: string; reviewerComment: string; saving: boolean }>>({})
+  const [allowedTransitions, setAllowedTransitions] = useState<string[]>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -141,7 +153,7 @@ export default function CandidateDetail() {
       await setCandidateDecision(id, status);
       await refreshDetailData();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Impossible de mettre a jour le statut du candidat.');
+      setActionError(err instanceof Error ? err.message : 'Impossible de mettre à jour le statut du candidat.');
     } finally {
       setActionLoading(false);
     }
@@ -149,6 +161,11 @@ export default function CandidateDetail() {
 
   const c = useMemo(() => candidates.find((item) => item.id === id), [candidates, id]);
   const canApplyAiRecommendation = Boolean(c?.ai_recommended_status && c.ai_recommended_status !== c.status);
+
+  useEffect(() => {
+    if (!c?.application_id) { setAllowedTransitions([]); return; }
+    loadAllowedTransitions(c.application_id).then(setAllowedTransitions);
+  }, [c?.application_id, c?.status]);
 
   useEffect(() => {
     let mounted = true;
@@ -318,6 +335,18 @@ export default function CandidateDetail() {
 
   const offer = offers.find((o) => o.id === c.offer_id);
   const applicationCreatedAt = c.application_created_at || c.created_at;
+
+  const dynamicActions = allowedTransitions
+    .map(code => {
+      const cfg = TRANSITION_CONFIG[code];
+      if (!cfg) return null;
+      return { status: code as CandidateStatus, ...cfg };
+    })
+    .filter((a): a is { status: CandidateStatus; label: string; icon: typeof UserCheck; cls: string } => a !== null);
+
+  const PIPELINE_STEPS = ['nouveau','en_etude','en_attente_avis','entretien','retenu','embauche'] as const;
+  const PIPELINE_LABELS = ['Nouveau','En étude','Avis','Entretien','Retenu','Embauché'];
+
     return (
     <div className="flex-1 flex flex-col overflow-hidden bg-t-bg3">
       {/* Header */}
@@ -347,9 +376,28 @@ export default function CandidateDetail() {
               <span className="inline-flex items-center gap-1"><Calendar className="w-3 h-3" />{c.disponibilite}</span>
               <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />{c.rythme_alternance}</span>
             </div>
+            {/* Pipeline indicator */}
+            <div className="flex items-center gap-1 mt-2 text-caption2 text-t-fg3 flex-wrap">
+              {PIPELINE_STEPS.map((step, i) => {
+                const currentIdx = PIPELINE_STEPS.indexOf(c.status as typeof PIPELINE_STEPS[number]);
+                const isDone = i < currentIdx;
+                const isActive = step === c.status;
+                return (
+                  <React.Fragment key={step}>
+                    <span className={`px-1.5 py-0.5 rounded text-caption2 ${
+                      isActive ? 'bg-blue-100 text-blue-700 font-semibold' :
+                      isDone   ? 'text-green-600' : 'text-t-fg-disabled'
+                    }`}>
+                      {PIPELINE_LABELS[i]}
+                    </span>
+                    {i < PIPELINE_STEPS.length - 1 && <span className="text-t-fg-disabled">›</span>}
+                  </React.Fragment>
+                );
+              })}
+            </div>
           </div>
           <div className="hidden sm:flex items-center gap-1.5 shrink-0">
-            {statusActions.map((a) => (
+            {dynamicActions.map((a) => (
               <button
                 key={a.status}
                 onClick={() => handleStatusChange(a.status)}
@@ -368,7 +416,7 @@ export default function CandidateDetail() {
         )}
         {/* Mobile status actions */}
         <div className="flex sm:hidden items-center gap-1.5 mt-3 overflow-x-auto">
-          {statusActions.map((a) => (
+          {dynamicActions.map((a) => (
             <button
               key={a.status}
               onClick={() => handleStatusChange(a.status)}

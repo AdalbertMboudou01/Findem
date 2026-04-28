@@ -8,11 +8,19 @@ const triConfig: Record<TriCategory, { label: string; dot: string }> = {
 };
 
 const statusConfig: Record<CandidateStatus, { label: string; bg: string; text: string }> = {
-  retenu_entretien: { label: 'Retenu', bg: 'bg-t-success-bg', text: 'text-t-success' },
-  a_revoir_manuellement: { label: 'A revoir', bg: 'bg-t-warning-bg', text: 'text-t-warning' },
-  non_retenu: { label: 'Non retenu', bg: 'bg-t-danger-bg', text: 'text-t-danger' },
-  vivier: { label: 'A revoir', bg: 'bg-t-warning-bg', text: 'text-t-warning' },
-  en_attente: { label: 'En attente', bg: 'bg-t-bg4', text: 'text-t-fg3' },
+  // New pipeline statuses
+  nouveau:          { label: 'Nouveau',        bg: 'bg-blue-50',    text: 'text-blue-600' },
+  en_etude:         { label: 'En étude',        bg: 'bg-blue-100',   text: 'text-blue-700' },
+  en_attente_avis:  { label: 'Attente avis',    bg: 'bg-purple-100', text: 'text-purple-700' },
+  entretien:        { label: 'Entretien',        bg: 'bg-amber-100',  text: 'text-amber-700' },
+  retenu:           { label: 'Retenu',           bg: 'bg-t-success-bg', text: 'text-t-success' },
+  embauche:         { label: 'Embauché',         bg: 'bg-green-200',  text: 'text-green-900' },
+  non_retenu:       { label: 'Non retenu',       bg: 'bg-t-danger-bg', text: 'text-t-danger' },
+  vivier:           { label: 'Vivier',           bg: 'bg-yellow-100', text: 'text-yellow-700' },
+  // Legacy
+  retenu_entretien:      { label: 'Retenu',      bg: 'bg-t-success-bg', text: 'text-t-success' },
+  a_revoir_manuellement: { label: 'A revoir',    bg: 'bg-t-warning-bg', text: 'text-t-warning' },
+  en_attente:            { label: 'En attente',  bg: 'bg-t-bg4',       text: 'text-t-fg3' },
 };
 
 const offerStatusConfig: Record<OfferStatus, { label: string; bg: string; text: string }> = {

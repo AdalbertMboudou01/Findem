@@ -5,6 +5,7 @@ import com.memoire.assistant.model.ApplicationActivity.EventType;
 import com.memoire.assistant.model.Candidate;
 import com.memoire.assistant.service.ApplicationService;
 import com.memoire.assistant.service.ApplicationActivityService;
+import com.memoire.assistant.service.ApplicationStatusService;
 import com.memoire.assistant.service.TeamViewService;
 import com.memoire.assistant.dto.ApplicationCreateRequest;
 import com.memoire.assistant.model.Job;
@@ -34,6 +35,9 @@ public class ApplicationController {
     private ApplicationActivityService activityService;
 
     @Autowired
+    private ApplicationStatusService applicationStatusService;
+
+    @Autowired
     private JobRepository jobRepository;
 
     @Autowired
@@ -56,6 +60,18 @@ public class ApplicationController {
     public ResponseEntity<Application> getApplicationById(@PathVariable UUID id) {
         Optional<Application> application = applicationService.getApplicationByIdForCurrentCompany(id);
         return application.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/{applicationId}/allowed-transitions")
+    public ResponseEntity<List<String>> getAllowedTransitions(@PathVariable UUID applicationId) {
+        Optional<Application> applicationOpt = applicationService.getApplicationByIdForCurrentCompany(applicationId);
+        if (applicationOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        Application application = applicationOpt.get();
+        String currentCode = application.getStatus() != null ? application.getStatus().getCode() : null;
+        List<String> transitions = applicationStatusService.getAllowedTransitions(currentCode == null ? "" : currentCode);
+        return ResponseEntity.ok(transitions);
     }
 
     @PostMapping
@@ -89,7 +105,24 @@ public class ApplicationController {
         if (existing.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
+        String previousStatusCode = existing.get().getStatus() != null ? existing.get().getStatus().getCode() : null;
         String previousStatusLabel = existing.get().getStatus() != null ? existing.get().getStatus().getLabel() : null;
+
+        // Validate transition if status is changing
+        if (application.getStatus() != null && application.getStatus().getStatusId() != null) {
+            Optional<ApplicationStatus> newStatusOpt = applicationStatusService.getStatusById(application.getStatus().getStatusId());
+            if (newStatusOpt.isPresent()) {
+                String newCode = newStatusOpt.get().getCode();
+                if (newCode != null && !newCode.equals(previousStatusCode)) {
+                    try {
+                        applicationStatusService.validateTransition(previousStatusCode, newCode, id);
+                    } catch (IllegalStateException ex) {
+                        throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+                    }
+                }
+            }
+        }
+
         application.setApplicationId(id);
         application.setCandidate(existing.get().getCandidate());
         application.setJob(existing.get().getJob());
