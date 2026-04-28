@@ -65,11 +65,13 @@ export interface ApplicationComment {
   id: string;
   application_id: string;
   company_id: string;
-  author_user_id: string | null;
-  author_recruiter_id: string | null;
-  author_name: string;
-  author_email: string | null;
-  content: string;
+  author_id: string | null;
+  author_type: 'USER' | 'RECRUITER';
+  author_name?: string;
+  body: string;
+  mentions: string[];
+  visibility: 'INTERNAL' | 'SHARED';
+  parent_id: string | null;
   created_at: string;
   updated_at: string | null;
 }

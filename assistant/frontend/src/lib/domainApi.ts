@@ -220,11 +220,12 @@ type BackendApplicationComment = {
   id?: string;
   applicationId?: string;
   companyId?: string;
-  authorUserId?: string;
-  authorRecruiterId?: string;
-  authorName?: string;
-  authorEmail?: string;
-  content?: string;
+  authorId?: string;
+  authorType?: string;
+  body?: string;
+  mentions?: string[];
+  visibility?: string;
+  parentId?: string;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -908,30 +909,45 @@ export async function loadApplicationComments(applicationId: string): Promise<Ap
     id: item.id || '',
     application_id: item.applicationId || applicationId,
     company_id: item.companyId || '',
-    author_user_id: item.authorUserId || null,
-    author_recruiter_id: item.authorRecruiterId || null,
-    author_name: item.authorName || 'Utilisateur interne',
-    author_email: item.authorEmail || null,
-    content: item.content || '',
+    author_id: item.authorId || null,
+    author_type: (item.authorType as ApplicationComment['author_type']) || 'RECRUITER',
+    body: item.body || '',
+    mentions: item.mentions || [],
+    visibility: (item.visibility as 'INTERNAL' | 'SHARED') || 'INTERNAL',
+    parent_id: item.parentId || null,
     created_at: item.createdAt || new Date().toISOString(),
     updated_at: item.updatedAt || null,
   }));
 }
 
-export async function createApplicationComment(applicationId: string, content: string): Promise<ApplicationComment> {
-  const created = await postJson<BackendApplicationComment>(`/api/applications/${applicationId}/comments`, { content });
+export async function createApplicationComment(
+  applicationId: string,
+  body: string,
+  options?: { mentions?: string[]; visibility?: 'INTERNAL' | 'SHARED'; parentId?: string }
+): Promise<ApplicationComment> {
+  const created = await postJson<BackendApplicationComment>(`/api/applications/${applicationId}/comments`, {
+    body,
+    mentions: options?.mentions ?? [],
+    visibility: options?.visibility ?? 'INTERNAL',
+    parentId: options?.parentId ?? null,
+  });
   return {
     id: created.id || '',
     application_id: created.applicationId || applicationId,
     company_id: created.companyId || '',
-    author_user_id: created.authorUserId || null,
-    author_recruiter_id: created.authorRecruiterId || null,
-    author_name: created.authorName || 'Utilisateur interne',
-    author_email: created.authorEmail || null,
-    content: created.content || content,
+    author_id: created.authorId || null,
+    author_type: (created.authorType as ApplicationComment['author_type']) || 'RECRUITER',
+    body: created.body || body,
+    mentions: created.mentions || [],
+    visibility: (created.visibility as 'INTERNAL' | 'SHARED') || 'INTERNAL',
+    parent_id: created.parentId || null,
     created_at: created.createdAt || new Date().toISOString(),
     updated_at: created.updatedAt || null,
   };
+}
+
+export async function deleteApplicationComment(applicationId: string, commentId: string): Promise<void> {
+  await deleteJson(`/api/applications/${applicationId}/comments/${commentId}`);
 }
 
 export async function loadApplicationActivities(applicationId: string): Promise<ApplicationActivity[]> {

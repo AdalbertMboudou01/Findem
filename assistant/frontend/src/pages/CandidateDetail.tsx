@@ -19,16 +19,16 @@ import {
   Download,
   StickyNote,
   History,
-  Send,
   ZoomIn,
   ZoomOut,
   Maximize2,
 } from 'lucide-react';
 import { TriBadge, StatusBadge } from '../components/ui/Badge';
 import ActivityTimeline from '../components/ActivityTimeline';
-import type { AnalysisFactFeedback, AnalysisFactFeedbackDecision, ApplicationActivity, ApplicationComment, Candidate, CandidateStatus, Offer } from '../types';
+import CommentsSection from '../components/CommentsSection';
+import type { AnalysisFactFeedback, AnalysisFactFeedbackDecision, Candidate, CandidateStatus, Offer } from '../types';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createApplicationComment, loadAnalysisFactFeedback, loadApplicationActivities, loadApplicationComments, loadLatestAnalysisFactFeedback, loadRecruitmentData, setCandidateDecision, submitAnalysisFactFeedback } from '../lib/domainApi';
+import { loadAnalysisFactFeedback, loadLatestAnalysisFactFeedback, loadRecruitmentData, setCandidateDecision, submitAnalysisFactFeedback } from '../lib/domainApi';
 import { getBlob, getJson } from '../lib/api';
 
 type ChatAnswerApi = {
@@ -96,13 +96,7 @@ export default function CandidateDetail() {
   const [factFeedback, setFactFeedback] = useState<AnalysisFactFeedback[]>([]);
   const [latestFactFeedback, setLatestFactFeedback] = useState<AnalysisFactFeedback[]>([]);
   const [factFeedbackError, setFactFeedbackError] = useState('');
-  const [factDrafts, setFactDrafts] = useState<Record<string, { decision: AnalysisFactFeedbackDecision; correctedFinding: string; reviewerComment: string; saving: boolean }>>({});
-  const [noteText, setNoteText] = useState('');
-  const [comments, setComments] = useState<ApplicationComment[]>([]);
-  const [activities, setActivities] = useState<ApplicationActivity[]>([]);
-  const [collaborationLoading, setCollaborationLoading] = useState(false);
-  const [collaborationError, setCollaborationError] = useState('');
-  const [noteSubmitting, setNoteSubmitting] = useState(false);
+  const [factDrafts, setFactDrafts] = useState<Record<string, { decision: AnalysisFactFeedbackDecision; correctedFinding: string; reviewerComment: string; saving: boolean }>>({})
 
   useEffect(() => {
     let mounted = true;
@@ -131,23 +125,6 @@ export default function CandidateDetail() {
     setOffers(data.offers);
   }
 
-  async function refreshCollaborationData(applicationId: string) {
-    setCollaborationLoading(true);
-    try {
-      const [nextComments, nextActivities] = await Promise.all([
-        loadApplicationComments(applicationId),
-        loadApplicationActivities(applicationId),
-      ]);
-      setComments(nextComments);
-      setActivities(nextActivities);
-      setCollaborationError('');
-    } catch (err) {
-      setCollaborationError(err instanceof Error ? err.message : 'Impossible de charger la collaboration de cette candidature.');
-    } finally {
-      setCollaborationLoading(false);
-    }
-  }
-
   async function handleStatusChange(status: CandidateStatus) {
     if (!id) return;
     setActionError('');
@@ -155,9 +132,6 @@ export default function CandidateDetail() {
     try {
       await setCandidateDecision(id, status);
       await refreshDetailData();
-      if (c?.application_id) {
-        await refreshCollaborationData(c.application_id);
-      }
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Impossible de mettre a jour le statut du candidat.');
     } finally {
@@ -210,44 +184,6 @@ export default function CandidateDetail() {
       mounted = false;
     };
   }, [c]);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadCollaboration() {
-      if (!c?.application_id) {
-        if (mounted) {
-          setComments([]);
-          setActivities([]);
-          setCollaborationError('');
-        }
-        return;
-      }
-
-      if (mounted) setCollaborationLoading(true);
-      try {
-        const [nextComments, nextActivities] = await Promise.all([
-          loadApplicationComments(c.application_id),
-          loadApplicationActivities(c.application_id),
-        ]);
-        if (!mounted) return;
-        setComments(nextComments);
-        setActivities(nextActivities);
-        setCollaborationError('');
-      } catch (err) {
-        if (!mounted) return;
-        setCollaborationError(err instanceof Error ? err.message : 'Impossible de charger la collaboration de cette candidature.');
-      } finally {
-        if (mounted) setCollaborationLoading(false);
-      }
-    }
-
-    loadCollaboration();
-
-    return () => {
-      mounted = false;
-    };
-  }, [c?.application_id]);
 
   useEffect(() => {
     let mounted = true;
@@ -360,23 +296,6 @@ export default function CandidateDetail() {
     { key: 'historique', label: 'Historique', icon: History },
   ];
 
-  async function addNote() {
-    if (!noteText.trim() || !c.application_id) return;
-    setNoteSubmitting(true);
-    setCollaborationError('');
-    try {
-      const created = await createApplicationComment(c.application_id, noteText.trim());
-      setComments((prev) => [...prev, created]);
-      setNoteText('');
-      await refreshCollaborationData(c.application_id);
-    } catch (err) {
-      setCollaborationError(err instanceof Error ? err.message : 'Impossible d\'ajouter ce commentaire.');
-    } finally {
-      setNoteSubmitting(false);
-    }
-  }
-
-
   if (loading) {
     return <div className="flex-1 flex items-center justify-center bg-t-bg3 text-body1 text-t-fg3">Chargement du candidat...</div>;
   }
@@ -391,31 +310,7 @@ export default function CandidateDetail() {
 
   const offer = offers.find((o) => o.id === c.offer_id);
   const applicationCreatedAt = c.application_created_at || c.created_at;
-  const chatbotCompletedAtDisplay = chatbotCompletedAt || applicationCreatedAt;
-
-  const fallbackTimeline = [
-    { action: 'Candidature recue via chatbot', date: applicationCreatedAt, type: 'info' as const },
-    { action: 'Chatbot complete', date: chatbotCompletedAtDisplay, type: 'success' as const },
-    ...(c.tri_category === 'prioritaire' ? [{ action: 'Classe comme Prioritaire', date: c.created_at, type: 'success' as const }] : []),
-    ...(c.status === 'retenu_entretien' ? [{ action: 'Retenu pour entretien', date: c.created_at, type: 'success' as const }] : []),
-    ...(c.status === 'non_retenu' ? [{ action: 'Non retenu — criteres bloquants', date: c.created_at, type: 'danger' as const }] : []),
-    ...(c.status === 'vivier' ? [{ action: 'A revoir manuellement', date: c.created_at, type: 'info' as const }] : []),
-  ];
-
-  const timeline = activities.length > 0
-    ? activities.map((activity) => ({
-        action: activity.title,
-        detail: activity.description,
-        date: activity.created_at,
-        type: activity.event_type.includes('STATUS')
-          ? ('success' as const)
-          : activity.event_type.includes('COMMENT')
-            ? ('info' as const)
-            : ('info' as const),
-      }))
-    : fallbackTimeline.map((event) => ({ ...event, detail: '' }));
-
-  return (
+    return (
     <div className="flex-1 flex flex-col overflow-hidden bg-t-bg3">
       {/* Header */}
       <div className="bg-t-bg1 border-b border-t-stroke2 px-3 sm:px-6 py-4 shrink-0">
@@ -776,49 +671,11 @@ export default function CandidateDetail() {
         {activeTab === 'cv' && <CvViewer candidate={c} />}
 
         {activeTab === 'notes' && (
-          <div className="max-w-[800px] space-y-4">
-            {/* Add note */}
-            <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
-              <h3 className="text-caption1 font-semibold text-t-fg2 mb-2">Ajouter une note</h3>
-              <div className="flex gap-2">
-                <textarea
-                  value={noteText}
-                  onChange={(e) => setNoteText(e.target.value)}
-                  rows={2}
-                  placeholder="Ecrivez une note interne... Mentionnez un collegue avec @email"
-                  className="flex-1 px-3 py-2 text-body1 bg-t-bg1 border border-t-stroke2 rounded-fluent outline-none focus:border-t-stroke-brand transition-colors resize-none placeholder:text-t-fg-disabled"
-                />
-                <button
-                  onClick={addNote}
-                  disabled={!noteText.trim() || !c.application_id || noteSubmitting}
-                  className="self-end h-8 px-3 text-caption1 font-semibold text-white bg-t-bg-brand hover:bg-t-bg-brand-hover disabled:opacity-40 rounded-fluent inline-flex items-center gap-1 transition-colors"
-                >
-                  <Send className="w-3.5 h-3.5" />{noteSubmitting ? 'Envoi...' : 'Envoyer'}
-                </button>
-              </div>
-            </div>
-
-            {collaborationError && (
-              <div className="px-3 py-2 text-caption1 text-t-danger bg-t-danger-bg border border-t-danger rounded-fluent">
-                {collaborationError}
-              </div>
-            )}
-
-            {/* Notes list */}
-            {collaborationLoading ? (
-              <div className="text-center py-8 text-caption1 text-t-fg3">Chargement des commentaires...</div>
-            ) : comments.map((note) => (
-              <div key={note.id} className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-caption1 font-semibold text-t-fg2">{note.author_name}</span>
-                  <span className="text-caption2 text-t-fg3">{formatDateTime(note.created_at)}</span>
-                </div>
-                <p className="text-body1 text-t-fg1 leading-relaxed">{note.content}</p>
-              </div>
-            ))}
-
-            {!collaborationLoading && comments.length === 0 && (
-              <div className="text-center py-8 text-caption1 text-t-fg3">Aucun commentaire interne pour cette candidature</div>
+          <div className="max-w-[800px]">
+            {c.application_id ? (
+              <CommentsSection applicationId={c.application_id} />
+            ) : (
+              <p className="text-center py-8 text-caption1 text-t-fg3">Aucune candidature associée.</p>
             )}
           </div>
         )}
