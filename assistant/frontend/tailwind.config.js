@@ -5,7 +5,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Simonetta', 'Georgia', 'Cambria', 'serif'],
+        sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
       },
       fontSize: {
         'caption2': ['clamp(11px, 10.4px + 0.08vw, 12px)', '16px'],
@@ -65,8 +65,12 @@ export default {
         'header': '48px',
       },
       borderRadius: {
-        'fluent': '4px',
-        'fluent-lg': '8px',
+        'fluent': '6px',
+        'fluent-lg': '12px',
+      },
+      boxShadow: {
+        'teams-card': '0 1px 4px rgba(0,0,0,0.08)',
+        'teams-dropdown': '0 4px 16px rgba(0,0,0,0.12)',
       },
     },
   },

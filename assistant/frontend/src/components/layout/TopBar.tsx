@@ -109,11 +109,11 @@ export default function TopBar({ title, subtitle, actions }: TopBarProps) {
   }
 
   return (
-    <header className="h-header bg-t-bg1 border-b border-t-stroke2 flex items-center px-3 md:px-4 shrink-0 gap-2">
+    <header className="h-header bg-t-bg1 border-b border-t-stroke2 flex items-center px-3 md:px-4 shrink-0 gap-2" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
       {/* Mobile hamburger */}
       {sidebar && <MobileMenuButton onClick={sidebar.toggle} />}
 
-      {/* Back/Forward nav - hidden on mobile */}
+      {/* Back/Forward nav */}
       <div className="hidden md:flex items-center gap-0.5 mr-2">
         <button className="w-7 h-7 flex items-center justify-center rounded-fluent text-t-fg3 hover:bg-t-bg1-hover transition-colors">
           <ChevronLeft className="w-4 h-4" />
@@ -125,69 +125,62 @@ export default function TopBar({ title, subtitle, actions }: TopBarProps) {
 
       {/* Title */}
       <div className="mr-2 md:mr-4 min-w-0">
-        <p className="text-body1 font-semibold text-t-fg1 truncate">{title}</p>
+        <p className="text-body1 font-semibold text-t-fg1 truncate leading-tight">{title}</p>
         {subtitle && <p className="text-caption2 text-t-fg3 truncate">{subtitle}</p>}
       </div>
 
-      {/* Centered search - hidden on small mobile */}
+      {/* Centered search */}
       <div className="flex-1 hidden sm:flex justify-center">
-        <div className="relative w-full max-w-[480px] h-8 pl-9 pr-2 text-body1 bg-t-bg3 border border-t-stroke2 rounded-fluent text-left cursor-default">
+        <div className="relative w-full max-w-[480px] h-8 pl-9 pr-3 text-body1 bg-t-bg3 border border-t-stroke2 rounded-fluent text-left cursor-default flex items-center transition-colors hover:border-t-stroke-brand/40 hover:bg-t-bg1-hover">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-t-fg3" />
-          <span className="text-t-fg3">Rechercher ou agir</span>
+          <span className="text-t-fg3 text-caption1">Rechercher ou agir</span>
+          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-50">
+            <Command className="w-3 h-3 text-t-fg3" />
+            <span className="text-[10px] text-t-fg3">K</span>
+          </div>
         </div>
       </div>
 
-      {/* Spacer on mobile when search hidden */}
       <div className="flex-1 sm:hidden" />
 
       {/* Right actions */}
-      <div className="flex items-center gap-1 ml-2 md:ml-4 shrink-0">
+      <div className="flex items-center gap-1 ml-2 md:ml-3 shrink-0">
         {actions}
-
         <div className="relative">
           <button
             onClick={toggleNotifications}
             className="w-8 h-8 flex items-center justify-center rounded-fluent text-t-fg3 hover:bg-t-bg1-hover transition-colors relative"
-            aria-label="Notifications"
           >
-            <Bell className="w-4 h-4" />
+            <Bell className="w-[18px] h-[18px]" />
             {hasUnread && (
-              <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-t-danger text-white text-[10px] leading-4 text-center">
+              <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold leading-4 text-center">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
           </button>
 
           {notifOpen && (
-            <div className="absolute right-0 mt-2 w-[320px] max-h-[420px] overflow-y-auto bg-t-bg1 border border-t-stroke3 rounded-fluent shadow-lg z-50">
-              <div className="px-3 py-2 border-b border-t-stroke3 flex items-center justify-between">
-                <span className="text-caption1 font-semibold text-t-fg2">Notifications</span>
-                <button
-                  onClick={markAllRead}
-                  disabled={unreadCount === 0}
-                  className="text-caption2 text-t-fg-brand disabled:text-t-fg-disabled"
-                >
-                  Tout marquer lu
+            <div className="absolute right-0 mt-2 w-[340px] max-h-[440px] overflow-y-auto bg-t-bg1 border border-t-stroke2 rounded-fluent-lg z-50" style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}>
+              <div className="px-4 py-3 border-b border-t-stroke3 flex items-center justify-between bg-t-bg2 rounded-t-fluent-lg">
+                <span className="text-caption1 font-semibold text-t-fg1">Notifications</span>
+                <button onClick={markAllRead} disabled={unreadCount === 0}
+                  className="text-caption2 text-t-fg-brand font-medium disabled:text-t-fg-disabled hover:text-t-fg-brand-hover transition-colors">
+                  Tout lire
                 </button>
               </div>
               {notifLoading ? (
-                <div className="px-3 py-4 text-caption1 text-t-fg3">Chargement...</div>
+                <div className="px-4 py-5 text-caption1 text-t-fg3 text-center">Chargement...</div>
               ) : previewNotifications.length === 0 ? (
-                <div className="px-3 py-4 text-caption1 text-t-fg3">Aucune notification</div>
+                <div className="px-4 py-8 text-caption1 text-t-fg3 text-center">Aucune notification</div>
               ) : (
                 previewNotifications.map((n) => (
-                  <button
-                    key={n.id}
-                    onClick={() => {
-                      void openNotification(n);
-                    }}
-                    className={`w-full text-left px-3 py-2 border-b border-t-stroke3 last:border-b-0 hover:bg-t-bg1-hover ${n.read ? 'opacity-80' : ''}`}
-                  >
+                  <button key={n.id} onClick={() => void openNotification(n)}
+                    className={`w-full text-left px-4 py-3 border-b border-t-stroke3 last:border-b-0 transition-colors ${n.read ? 'hover:bg-t-bg2' : 'bg-t-brand-160/40 hover:bg-t-brand-160/70'}`}>
                     <div className="flex items-start justify-between gap-2">
-                      <span className="text-caption1 font-semibold text-t-fg2">{n.title}</span>
-                      {!n.read && <span className="w-2 h-2 rounded-full bg-t-brand-80 mt-1" />}
+                      <span className="text-caption1 font-semibold text-t-fg1 leading-snug">{n.title}</span>
+                      {!n.read && <span className="w-2 h-2 rounded-full bg-t-brand-80 mt-1 shrink-0" />}
                     </div>
-                    <p className="text-caption1 text-t-fg3 mt-1 line-clamp-2">{n.message}</p>
+                    <p className="text-caption1 text-t-fg3 mt-0.5 line-clamp-2 leading-snug">{n.message}</p>
                     <p className="text-caption2 text-t-fg-disabled mt-1">{new Date(n.created_at).toLocaleString('fr-FR')}</p>
                   </button>
                 ))
@@ -195,11 +188,12 @@ export default function TopBar({ title, subtitle, actions }: TopBarProps) {
             </div>
           )}
         </div>
-      </div>
 
-      {/* Profile avatar */}
-      <div className="w-8 h-8 rounded-full bg-t-brand-70 flex items-center justify-center ml-1 md:ml-2 cursor-pointer hover:brightness-110 transition-all shrink-0">
-        <span className="text-white text-caption2 font-semibold">{initials}</span>
+        {/* Profile */}
+        <div className="w-7 h-7 rounded-full flex items-center justify-center ml-1 cursor-pointer hover:ring-2 hover:ring-t-brand-100/30 transition-all shrink-0"
+          style={{ background: 'linear-gradient(135deg, #7074D0, #5B5FC7)' }}>
+          <span className="text-white text-[11px] font-semibold">{initials}</span>
+        </div>
       </div>
     </header>
   );
