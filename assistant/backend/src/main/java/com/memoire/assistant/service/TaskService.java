@@ -3,6 +3,7 @@ package com.memoire.assistant.service;
 import com.memoire.assistant.dto.TaskCreateRequest;
 import com.memoire.assistant.dto.TaskDTO;
 import com.memoire.assistant.model.ApplicationActivity.EventType;
+import com.memoire.assistant.model.InternalNotification;
 import com.memoire.assistant.model.Task;
 import com.memoire.assistant.repository.ApplicationRepository;
 import com.memoire.assistant.repository.TaskRepository;
@@ -27,6 +28,9 @@ public class TaskService {
 
     @Autowired
     private ApplicationActivityService activityService;
+
+    @Autowired
+    private InternalNotificationService notificationService;
 
     public List<TaskDTO> getTasksForApplication(UUID applicationId) {
         UUID companyId = TenantContext.getCompanyId();
@@ -65,6 +69,17 @@ public class TaskService {
                 "title", saved.getTitle(),
                 "assigneeId", saved.getAssigneeId() != null ? saved.getAssigneeId().toString() : ""
         ));
+
+        // Notification TASK_ASSIGNED si un assigné est défini
+        if (saved.getAssigneeId() != null) {
+            notificationService.notify(
+                    saved.getAssigneeId(), companyId,
+                    InternalNotification.Type.TASK_ASSIGNED,
+                    "Une tâche vous a été assignée",
+                    saved.getTitle(),
+                    "candidate", applicationId
+            );
+        }
 
         return toDTO(saved);
     }

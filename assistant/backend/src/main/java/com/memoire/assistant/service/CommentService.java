@@ -4,6 +4,7 @@ import com.memoire.assistant.model.ApplicationActivity.EventType;
 import com.memoire.assistant.model.Comment;
 import com.memoire.assistant.model.Comment.AuthorType;
 import com.memoire.assistant.model.Comment.Visibility;
+import com.memoire.assistant.model.InternalNotification;
 import com.memoire.assistant.repository.ApplicationRepository;
 import com.memoire.assistant.repository.CommentRepository;
 import com.memoire.assistant.security.TenantContext;
@@ -32,6 +33,9 @@ public class CommentService {
 
     @Autowired
     private ApplicationActivityService activityService;
+
+    @Autowired
+    private InternalNotificationService notificationService;
 
     public List<Comment> getCommentsForApplication(UUID applicationId) {
         UUID companyId = TenantContext.getCompanyId();
@@ -78,6 +82,17 @@ public class CommentService {
                 Map.of("preview", body.length() > 80 ? body.substring(0, 80) + "…" : body,
                        "visibility", visibility.name(),
                        "mentions_count", allMentions.size()));
+
+        // Notifications MENTION pour chaque utilisateur mentionné
+        UUID companyIdFinal = companyId;
+        UUID applicationIdFinal = applicationId;
+        allMentions.forEach(mentionedId -> notificationService.notify(
+                mentionedId, companyIdFinal,
+                InternalNotification.Type.MENTION,
+                "Vous avez été mentionné dans un commentaire",
+                body.length() > 120 ? body.substring(0, 120) + "…" : body,
+                "candidate", applicationIdFinal
+        ));
 
         return saved;
     }
