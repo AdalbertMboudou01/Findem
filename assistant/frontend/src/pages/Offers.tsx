@@ -12,11 +12,13 @@ import {
   CopyPlus,
   Briefcase,
   SlidersHorizontal,
+  BarChart2,
+  RefreshCw,
 } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import { OfferStatusBadge, TriBadge } from '../components/ui/Badge';
 import type { Candidate, Offer, OfferStatus } from '../types';
-import { loadRecruitmentData, setOfferStatus, upsertOffer } from '../lib/domainApi';
+import { loadRecruitmentData, setOfferStatus, upsertOffer, getAnalysisQualityMetrics, type AnalysisQualityMetrics } from '../lib/domainApi';
 
 type OfferFormValues = {
   title: string;
@@ -28,6 +30,97 @@ type OfferFormValues = {
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 }
+
+function formatPercent(n: number | undefined): string {
+  if (n == null || isNaN(n)) return '—';
+  return `${Math.round(n * 100)} %`;
+}
+
+/** Métriques d'analyse affichées dans le panneau d'une offre */
+function OfferQualityBlock() {
+  const [metrics, setMetrics] = useState<AnalysisQualityMetrics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  async function load() {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await getAnalysisQualityMetrics(30);
+      setMetrics(data);
+    } catch {
+      setError('Impossible de charger les métriques.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+
+  return (
+    <div className="mt-4 border-t border-t-stroke3 pt-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-1.5">
+          <BarChart2 className="w-3.5 h-3.5 text-t-fg3" />
+          <h4 className="text-caption1 font-semibold text-t-fg2 uppercase tracking-wider">Performance analyse</h4>
+        </div>
+        <button
+          onClick={load}
+          disabled={loading}
+          className="inline-flex items-center gap-1 text-caption2 text-t-fg3 hover:text-t-fg2 disabled:opacity-50"
+          title="Actualiser"
+        >
+          <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+          {loading ? 'Chargement…' : 'Actualiser'}
+        </button>
+      </div>
+
+      {error && <p className="text-caption2 text-t-danger">{error}</p>}
+
+      {!error && metrics && (
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-fluent border border-t-stroke3 p-3 bg-t-bg2">
+              <p className="text-caption2 text-t-fg3">Précision estimée</p>
+              <p className="text-body1 font-semibold text-t-fg1">{formatPercent(metrics.precisionScore)}</p>
+            </div>
+            <div className="rounded-fluent border border-t-stroke3 p-3 bg-t-bg2">
+              <p className="text-caption2 text-t-fg3">Taux correction</p>
+              <p className="text-body1 font-semibold text-t-fg1">{formatPercent(metrics.correctionRate)}</p>
+            </div>
+            <div className="rounded-fluent border border-t-stroke3 p-3 bg-t-bg2">
+              <p className="text-caption2 text-t-fg3">Taux rejet</p>
+              <p className="text-body1 font-semibold text-t-fg1">{formatPercent(metrics.rejectionRate)}</p>
+            </div>
+          </div>
+
+          {metrics.byDimension.length > 0 && (
+            <div className="mt-3 space-y-2">
+              {metrics.byDimension.slice(0, 4).map((dim) => (
+                <div key={dim.dimension} className="flex items-center gap-3 text-caption2">
+                  <span className="text-t-fg2 capitalize w-28 shrink-0">{dim.dimension}</span>
+                  <div className="flex-1 bg-t-bg4 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="h-1.5 rounded-full bg-t-brand-80"
+                      style={{ width: `${Math.round((dim.precisionScore ?? 0) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-t-fg3 w-10 text-right">{formatPercent(dim.precisionScore)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="text-caption2 text-t-fg-disabled mt-2">
+            Basé sur {metrics.reviewedFacts} constats · {metrics.windowDays} derniers jours
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+
 
 const tabs: { key: OfferStatus | 'all'; label: string }[] = [
   { key: 'all', label: 'Toutes' },
@@ -267,6 +360,8 @@ export default function Offers() {
                           <SlidersHorizontal className="w-3.5 h-3.5" /> Configurer questionnaire
                         </button>
                       </div>
+
+                      <OfferQualityBlock />
                     </div>
                   )}
                 </div>
