@@ -119,6 +119,7 @@ export default function Dashboard() {
   const [candidatesCount, setCandidatesCount] = useState(0);
   const [overdueTasks, setOverdueTasks] = useState<MappedTask[]>([]);
   const [awaitingAvis, setAwaitingAvis] = useState<AvisEntry[]>([]);
+  const [recentCandidates, setRecentCandidates] = useState<Candidate[]>([]);
   const [loadingOffers, setLoadingOffers] = useState(true);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [loadingAvis, setLoadingAvis] = useState(true);
@@ -126,7 +127,7 @@ export default function Dashboard() {
   useEffect(() => {
     let mounted = true;
 
-    // Chargement offres + compteurs + join pour "attente avis"
+    // Chargement offres + compteurs + join pour "attente avis" + nouvelles candidatures
     (async () => {
       try {
         const [data, avisEntries] = await Promise.all([
@@ -134,11 +135,22 @@ export default function Dashboard() {
           loadTeamView('attente_avis'),
         ]);
         if (!mounted) return;
+
         const candidateMap = new Map<string, Candidate>(
           data.candidates.map((c) => [c.application_id ?? '', c])
         );
+
         setOffers(data.offers.filter((o) => o.status === 'ouvert'));
         setCandidatesCount(data.candidates.length);
+
+        // Nouvelles candidatures : < 48h, triées du plus récent
+        const cutoff48h = Date.now() - 48 * 60 * 60 * 1000;
+        setRecentCandidates(
+          [...data.candidates]
+            .filter((c) => new Date(c.created_at).getTime() > cutoff48h)
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        );
+
         setAwaitingAvis(
           avisEntries.map((e) => {
             const c = candidateMap.get(e.application_id);
@@ -323,18 +335,47 @@ export default function Dashboard() {
             {/* Colonne droite */}
             <div className="space-y-4">
 
-              {/* Bloc C — Nouvelles candidatures < 48h (Étape 4) */}
+              {/* Bloc C — Nouvelles candidatures < 48h */}
               <div>
                 <SectionHeader
                   icon={Users}
                   title="Nouvelles candidatures"
+                  count={recentCandidates.length > 0 ? recentCandidates.length : undefined}
                   linkTo="/candidates"
                   accentColor="text-t-brand-80"
                   badgeColor="bg-t-bg-brand-selected"
                 />
                 <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent overflow-hidden">
-                  {/* Étape 4 — données réelles */}
-                  <ListSkeleton rows={4} />
+                  {loadingOffers ? (
+                    <ListSkeleton rows={4} />
+                  ) : recentCandidates.length === 0 ? (
+                    <EmptyState icon={Users} message="Aucune candidature dans les 48 dernières heures" />
+                  ) : (
+                    <div className="divide-y divide-t-stroke3">
+                      {recentCandidates.slice(0, 5).map((c) => (
+                        <Link
+                          key={c.id}
+                          to={`/candidates/${c.application_id ?? c.id}`}
+                          className="flex items-center gap-3 px-3 py-2.5 hover:bg-t-bg1-hover transition-colors"
+                        >
+                          <div className="w-7 h-7 rounded-full bg-t-bg-brand-selected flex items-center justify-center text-caption2 font-semibold text-t-brand-80 shrink-0">
+                            {c.first_name[0]}{c.last_name[0]}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-body1 text-t-fg1 truncate">{c.first_name} {c.last_name}</p>
+                            <p className="text-caption2 text-t-fg3 truncate">{c.action_recommandee || 'Analyse en attente'}</p>
+                          </div>
+                          <span className="text-caption2 text-t-fg3 shrink-0">{timeAgo(c.created_at)}</span>
+                          <ChevronRight className="w-4 h-4 text-t-fg3 shrink-0" />
+                        </Link>
+                      ))}
+                      {recentCandidates.length > 5 && (
+                        <div className="px-3 py-2 text-caption2 text-t-fg-brand text-center">
+                          + {recentCandidates.length - 5} autres nouvelles candidatures
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
