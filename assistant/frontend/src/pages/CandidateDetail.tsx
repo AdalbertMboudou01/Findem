@@ -45,13 +45,13 @@ type ChatAnswerApi = {
 };
 
 const TRANSITION_CONFIG: Record<string, { label: string; icon: typeof UserCheck; cls: string }> = {
-  en_etude:         { label: 'Étudier',       icon: Eye,           cls: 'bg-blue-500 text-white' },
-  en_attente_avis:  { label: 'Demander avis', icon: MessageSquare, cls: 'bg-purple-500 text-white' },
+  en_etude:         { label: 'Étudier',       icon: Eye,           cls: 'bg-t-bg-brand text-white' },
+  en_attente_avis:  { label: 'Demander avis', icon: MessageSquare, cls: 'bg-t-warning text-white' },
   entretien:        { label: 'Entretien',      icon: UserCheck,     cls: 'bg-t-success text-white' },
-  retenu:           { label: 'Retenir',        icon: UserCheck,     cls: 'bg-green-600 text-white' },
-  embauche:         { label: 'Embauché',       icon: CheckCircle2,  cls: 'bg-green-800 text-white' },
+  retenu:           { label: 'Retenir',        icon: UserCheck,     cls: 'bg-t-success text-white' },
+  embauche:         { label: 'Embauché',       icon: CheckCircle2,  cls: 'bg-t-success text-white' },
   non_retenu:       { label: 'Écarter',        icon: XCircle,       cls: 'bg-t-danger text-white' },
-  vivier:           { label: 'Vivier',         icon: Clock,         cls: 'bg-yellow-500 text-white' },
+  vivier:           { label: 'Vivier',         icon: Clock,         cls: 'bg-t-warning text-white' },
 };
 
 function formatDate(iso: string) {
@@ -342,6 +342,14 @@ export default function CandidateDetail() {
 
   const PIPELINE_STEPS = ['nouveau','en_etude','en_attente_avis','entretien','retenu','embauche'] as const;
   const PIPELINE_LABELS = ['Nouveau','En étude','Avis','Entretien','Retenu','Embauché'];
+  const PIPELINE_TOOLTIPS = [
+    'Candidature reçue, pas encore examinée',
+    "En cours d'examen par l'équipe",
+    "En attente d'au moins un avis recruteur",
+    'Entretien planifié ou en cours',
+    'Candidat présélectionné, décision finale à venir',
+    'Candidat embauché ✓',
+  ];
 
     return (
     <div className="flex-1 flex flex-col overflow-hidden bg-t-bg3">
@@ -380,10 +388,13 @@ export default function CandidateDetail() {
                 const isActive = step === c.status;
                 return (
                   <React.Fragment key={step}>
-                    <span className={`px-1.5 py-0.5 rounded text-caption2 ${
-                      isActive ? 'bg-blue-100 text-blue-700 font-semibold' :
-                      isDone   ? 'text-green-600' : 'text-t-fg-disabled'
-                    }`}>
+                    <span
+                      title={PIPELINE_TOOLTIPS[i]}
+                      className={`px-1.5 py-0.5 rounded text-caption2 cursor-default ${
+                        isActive ? 'bg-t-bg-brand-selected text-t-brand-80 font-semibold' :
+                        isDone   ? 'text-t-success' : 'text-t-fg-disabled'
+                      }`}
+                    >
                       {PIPELINE_LABELS[i]}
                     </span>
                     {i < PIPELINE_STEPS.length - 1 && <span className="text-t-fg-disabled">›</span>}
