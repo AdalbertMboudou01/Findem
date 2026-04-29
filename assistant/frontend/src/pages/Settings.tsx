@@ -45,7 +45,7 @@ export default function Settings() {
       const metrics = await getAnalysisQualityMetrics(30);
       setQualityMetrics(metrics);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Impossible de charger les metriques qualite IA.';
+      const message = error instanceof Error ? error.message : 'Impossible de charger les métriques qualité.';
       setQualityError(message);
     } finally {
       setQualityLoading(false);
@@ -152,7 +152,7 @@ export default function Settings() {
 
           <section className="bg-t-bg1 border border-t-stroke3 rounded-fluent-lg overflow-hidden">
             <div className="px-5 py-4 border-b border-t-stroke3 flex items-center justify-between gap-3">
-              <h2 className="text-caption1 font-semibold text-t-fg2 uppercase tracking-wider">Qualite IA chatbot</h2>
+              <h2 className="text-caption1 font-semibold text-t-fg2 uppercase tracking-wider">Qualité chatbot</h2>
               <button
                 onClick={loadQualityMetrics}
                 disabled={qualityLoading}

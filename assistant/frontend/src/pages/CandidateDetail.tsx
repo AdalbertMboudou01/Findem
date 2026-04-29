@@ -674,7 +674,7 @@ export default function CandidateDetail() {
               {c.ai_recommended_status && (
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <span className="inline-flex items-center px-2 py-1 rounded-fluent bg-t-bg1 text-caption1 text-t-fg2 border border-t-stroke3">
-                    Statut IA suggere: {labelForStatus(c.ai_recommended_status)}
+                    Statut suggéré : {labelForStatus(c.ai_recommended_status)}
                   </span>
                   {canApplyAiRecommendation && (
                     <button
@@ -682,11 +682,11 @@ export default function CandidateDetail() {
                       disabled={actionLoading}
                       className="h-7 px-2.5 text-caption1 font-semibold rounded-fluent inline-flex items-center gap-1 bg-t-brand-80 text-white hover:opacity-90 disabled:opacity-40 transition-opacity"
                     >
-                      Appliquer la reco IA
+                      Appliquer la recommandation
                     </button>
                   )}
                   {!canApplyAiRecommendation && (
-                    <span className="text-caption1 text-t-fg3">Statut deja aligne avec la recommandation IA.</span>
+                    <span className="text-caption1 text-t-fg3">Statut déjà aligné avec la recommandation.</span>
                   )}
                 </div>
               )}

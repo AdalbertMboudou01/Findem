@@ -14,7 +14,7 @@ const EVENT_CONFIG: Record<ApplicationEventType, { label: string; icon: string; 
   DECISION_RECORDED:   { label: 'Décision enregistrée',     icon: '⚖️', color: 'bg-red-100 text-red-700' },
   MENTION_TRIGGERED:   { label: 'Mention',                  icon: '@',  color: 'bg-indigo-100 text-indigo-700' },
   CHATBOT_COMPLETED:   { label: 'Chatbot complété',         icon: '🤖', color: 'bg-teal-100 text-teal-700' },
-  AI_ANALYSIS_DONE:    { label: 'Analyse IA terminée',      icon: '🧠', color: 'bg-violet-100 text-violet-700' },
+  AI_ANALYSIS_DONE:    { label: 'Analyse terminée',         icon: '🧠', color: 'bg-violet-100 text-violet-700' },
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
