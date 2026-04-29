@@ -8,6 +8,7 @@ import {
   Bell,
   CheckCircle2,
   Sparkles,
+  X,
 } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import { useEffect, useState } from 'react';
@@ -129,6 +130,14 @@ export default function Dashboard() {
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [loadingAvis, setLoadingAvis] = useState(true);
   const [loadingNotifs, setLoadingNotifs] = useState(true);
+  const [bannerDismissed, setBannerDismissed] = useState(
+    () => localStorage.getItem('findem.first_run_dismissed') === '1'
+  );
+
+  function dismissBanner() {
+    localStorage.setItem('findem.first_run_dismissed', '1');
+    setBannerDismissed(true);
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -236,16 +245,31 @@ export default function Dashboard() {
           )}
 
           {/* ── Bannière premier démarrage ── */}
-          {!loadingOffers && offers.length === 0 && (
-            <div className="bg-t-bg-brand-selected border border-t-stroke3 rounded-fluent px-4 py-3 flex items-start gap-3">
-              <Briefcase className="w-4 h-4 text-t-brand-80 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-body1 font-semibold text-t-fg1">Commencez par créer une offre</p>
-                <p className="text-caption2 text-t-fg3 mt-0.5">Ajoutez un poste ouvert pour commencer à recevoir et évaluer des candidatures.</p>
-                <Link to="/offers" className="inline-block mt-2 text-caption1 font-semibold text-t-brand-80 hover:underline">
-                  Créer ma première offre →
+          {!loadingOffers && offers.length === 0 && !bannerDismissed && (
+            <div className="bg-t-bg-brand-selected border border-t-stroke3 rounded-fluent px-4 py-4 flex items-start gap-3">
+              <div className="w-9 h-9 rounded-full bg-t-bg-brand flex items-center justify-center shrink-0">
+                <Briefcase className="w-4 h-4 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-body1 font-semibold text-t-fg1">Votre espace est prêt 🎉</p>
+                <p className="text-caption2 text-t-fg3 mt-0.5">
+                  Créez votre première offre pour commencer à recevoir et évaluer des candidatures.
+                </p>
+                <Link
+                  to="/offers"
+                  className="inline-flex items-center gap-1.5 mt-2.5 h-8 px-3 text-caption1 font-semibold text-white bg-t-bg-brand hover:bg-t-bg-brand-hover rounded-fluent transition-colors"
+                >
+                  <Briefcase className="w-3.5 h-3.5" /> Créer ma première offre
                 </Link>
               </div>
+              <button
+                onClick={dismissBanner}
+                className="shrink-0 w-6 h-6 flex items-center justify-center rounded text-t-fg3 hover:text-t-fg2 hover:bg-t-bg1 transition-colors"
+                title="Ignorer"
+                aria-label="Ignorer ce message"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
 
