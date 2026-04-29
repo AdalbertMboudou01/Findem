@@ -20,9 +20,7 @@ import {
   MessageCircle,
   Download,
   StickyNote,
-  History,
   ListTodo,
-  Scale,
   ZoomIn,
   ZoomOut,
   Maximize2,
@@ -97,7 +95,7 @@ export function CandidateEmpty() {
   );
 }
 
-type DetailTab = 'synthese' | 'cv' | 'collaboration' | 'decision' | 'historique';
+type DetailTab = 'synthese' | 'cv' | 'suivi';
 
 export default function CandidateDetail() {
   const { id } = useParams<{ id: string }>();
@@ -314,11 +312,9 @@ export default function CandidateDetail() {
   }
 
   const tabs: { key: DetailTab; label: string; icon: typeof FileText }[] = [
-    { key: 'synthese', label: 'Synthese', icon: FileText },
-    { key: 'cv', label: 'CV', icon: Download },
-    { key: 'collaboration', label: 'Collaboration', icon: Users2 },
-    { key: 'decision', label: 'Décision', icon: Scale },
-    { key: 'historique', label: 'Historique', icon: History },
+    { key: 'synthese', label: 'Synthèse',    icon: FileText },
+    { key: 'cv',       label: 'CV',          icon: Download },
+    { key: 'suivi',    label: 'Suivi',       icon: Users2   },
   ];
 
   if (loading) {
@@ -744,48 +740,43 @@ export default function CandidateDetail() {
 
         {activeTab === 'cv' && <CvViewer candidate={c} />}
 
-        {activeTab === 'collaboration' && (
+        {activeTab === 'suivi' && (
           <div className="max-w-[800px] space-y-6">
             {c.application_id ? (
               <>
+                {/* Décision */}
+                <div>
+                  <h3 className="text-caption1 font-semibold text-t-fg2 uppercase tracking-wide mb-3">Décision</h3>
+                  <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
+                    <DecisionSection applicationId={c.application_id} />
+                  </div>
+                </div>
+
+                {/* Commentaires */}
                 <div>
                   <h3 className="text-caption1 font-semibold text-t-fg2 uppercase tracking-wide mb-3">Commentaires internes</h3>
                   <CommentsSection applicationId={c.application_id} />
                 </div>
+
+                {/* Tâches */}
                 <div className="border-t border-t-stroke3 pt-6">
                   <h3 className="text-caption1 font-semibold text-t-fg2 uppercase tracking-wide mb-3">Tâches</h3>
                   <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
                     <TasksSection applicationId={c.application_id} />
                   </div>
                 </div>
+
+                {/* Historique */}
+                <div className="border-t border-t-stroke3 pt-6">
+                  <h3 className="text-caption1 font-semibold text-t-fg2 uppercase tracking-wide mb-3">Historique</h3>
+                  <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
+                    <ActivityTimeline applicationId={c.application_id} />
+                  </div>
+                </div>
               </>
             ) : (
               <p className="text-center py-8 text-caption1 text-t-fg3">Aucune candidature associée.</p>
             )}
-          </div>
-        )}
-
-        {activeTab === 'decision' && (
-          <div className="max-w-[800px]">
-            {c.application_id ? (
-              <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
-                <DecisionSection applicationId={c.application_id} />
-              </div>
-            ) : (
-              <p className="text-center py-8 text-caption1 text-t-fg3">Aucune candidature associée.</p>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'historique' && (
-          <div className="max-w-[800px]">
-            <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
-              {c.application_id ? (
-                <ActivityTimeline applicationId={c.application_id} />
-              ) : (
-                <p className="text-center py-8 text-caption1 text-t-fg3">Aucune candidature associée.</p>
-              )}
-            </div>
           </div>
         )}
       </div>
