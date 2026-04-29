@@ -11,7 +11,6 @@ import {
   ChevronUp,
   Menu,
   X,
-  LayoutList,
   MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../../lib/AuthContext';
@@ -32,7 +31,6 @@ const navItems: NavItem[] = [
   { to: '/', icon: LayoutDashboard, label: 'Accueil', section: 'pilotage', badge: 'unread' },
   { to: '/offers', icon: Briefcase, label: 'Offres', section: 'pilotage' },
   { to: '/candidates', icon: Users, label: 'Candidats', matchPrefix: '/candidates', section: 'pilotage' },
-  { to: '/team-views', icon: LayoutList, label: 'Vues équipe', section: 'pilotage' },
   { to: '/chatbot', icon: Bot, label: 'Chatbot', section: 'execution' },
   { to: '/team-chat', icon: MessageSquare, label: 'Canaux', section: 'execution' },
   { to: '/entreprise', icon: Building2, label: 'Entreprise', section: 'administration' },

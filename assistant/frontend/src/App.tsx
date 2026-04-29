@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './lib/AuthContext';
 import { ThemeProvider } from './lib/ThemeContext';
 import Settings from './pages/Settings';
-import TeamViews from './pages/TeamViews';
 import AppLayout from './components/layout/AppLayout';
 import Landing from './pages/Landing';
 import Login from './pages/auth/Login';
@@ -73,7 +72,6 @@ function AppRoutes() {
         <Route path="/entreprise" element={<Entreprise />} />
         <Route path="/entreprise/setup" element={<CompanyOnboarding />} />
         <Route path="/settings" element={<Settings />} />
-        <Route path="/team-views" element={<TeamViews />} />
         <Route path="/team-chat" element={<TeamChat />} />
       </Route>
 
