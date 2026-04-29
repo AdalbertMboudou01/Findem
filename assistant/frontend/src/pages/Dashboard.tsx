@@ -11,7 +11,9 @@ import {
 import TopBar from '../components/layout/TopBar';
 import { useEffect, useState } from 'react';
 import type { Offer } from '../types';
-import { loadRecruitmentData } from '../lib/domainApi';
+import { loadRecruitmentData, loadOverdueTasks } from '../lib/domainApi';
+
+type MappedTask = Awaited<ReturnType<typeof loadOverdueTasks>>[number];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -92,15 +94,35 @@ function EmptyState({ icon: Icon, message }: { icon: React.ElementType; message:
   );
 }
 
+/** Badge de priorité pour une tâche */
+const PRIORITY_STYLES: Record<string, { label: string; className: string }> = {
+  LOW:    { label: 'Faible',  className: 'bg-t-bg4 text-t-fg3' },
+  MEDIUM: { label: 'Moyen',   className: 'bg-t-warning-bg text-t-warning' },
+  HIGH:   { label: 'Haute',   className: 'bg-t-danger-bg text-t-danger' },
+  URGENT: { label: 'Urgent',  className: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 font-semibold' },
+};
+
+function PriorityBadge({ priority }: { priority: string }) {
+  const s = PRIORITY_STYLES[priority] ?? PRIORITY_STYLES.LOW;
+  return (
+    <span className={`text-[10px] px-1.5 py-0.5 rounded-full leading-none ${s.className}`}>
+      {s.label}
+    </span>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [candidatesCount, setCandidatesCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [overdueTasks, setOverdueTasks] = useState<MappedTask[]>([]);
+  const [loadingOffers, setLoadingOffers] = useState(true);
+  const [loadingTasks, setLoadingTasks] = useState(true);
 
   useEffect(() => {
     let mounted = true;
+    // Chargement offres + compteurs
     (async () => {
       try {
         const data = await loadRecruitmentData();
@@ -108,7 +130,17 @@ export default function Dashboard() {
         setOffers(data.offers.filter((o) => o.status === 'ouvert'));
         setCandidatesCount(data.candidates.length);
       } catch { /* silencieux */ } finally {
-        if (mounted) setLoading(false);
+        if (mounted) setLoadingOffers(false);
+      }
+    })();
+    // Chargement tâches en retard
+    (async () => {
+      try {
+        const tasks = await loadOverdueTasks();
+        if (!mounted) return;
+        setOverdueTasks(tasks);
+      } catch { /* silencieux */ } finally {
+        if (mounted) setLoadingTasks(false);
       }
     })();
     return () => { mounted = false; };
@@ -142,13 +174,13 @@ export default function Dashboard() {
             <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-4 py-3">
               <p className="text-caption2 text-t-fg3">Candidatures totales</p>
               <p className="text-subtitle2 font-semibold text-t-fg1 mt-0.5">
-                {loading ? <span className="inline-block w-8 h-4 bg-t-bg4 rounded animate-pulse" /> : candidatesCount}
+                {loadingOffers ? <span className="inline-block w-8 h-4 bg-t-bg4 rounded animate-pulse" /> : candidatesCount}
               </p>
             </div>
             <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-4 py-3">
               <p className="text-caption2 text-t-fg3">Offres ouvertes</p>
               <p className="text-subtitle2 font-semibold text-t-fg1 mt-0.5">
-                {loading ? <span className="inline-block w-8 h-4 bg-t-bg4 rounded animate-pulse" /> : offers.length}
+                {loadingOffers ? <span className="inline-block w-8 h-4 bg-t-bg4 rounded animate-pulse" /> : offers.length}
               </p>
             </div>
             <div className="hidden sm:block bg-t-bg1 border border-t-stroke3 rounded-fluent px-4 py-3">
@@ -166,19 +198,54 @@ export default function Dashboard() {
             {/* Colonne gauche */}
             <div className="space-y-4">
 
-              {/* Bloc A — Tâches en retard (Étape 2) */}
+              {/* Bloc A — Tâches en retard */}
               <div>
                 <SectionHeader
                   icon={AlertCircle}
                   title="Tâches en retard"
+                  count={overdueTasks.length > 0 ? overdueTasks.length : undefined}
                   linkTo="/candidates"
                   linkLabel="Mes tâches"
                   accentColor="text-t-danger"
                   badgeColor="bg-t-danger-bg"
                 />
                 <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent overflow-hidden">
-                  {/* Étape 2 — données réelles */}
-                  <ListSkeleton rows={3} />
+                  {loadingTasks ? (
+                    <ListSkeleton rows={3} />
+                  ) : overdueTasks.length === 0 ? (
+                    <EmptyState icon={CheckCircle2} message="Aucune tâche en retard 🎉" />
+                  ) : (
+                    <div className="divide-y divide-t-stroke3">
+                      {overdueTasks.slice(0, 5).map((task) => (
+                        <Link
+                          key={task.id}
+                          to={`/candidates/${task.application_id}`}
+                          className="flex items-start gap-3 px-3 py-2.5 hover:bg-t-bg1-hover transition-colors"
+                        >
+                          <div className="w-7 h-7 rounded-full bg-t-danger-bg flex items-center justify-center shrink-0 mt-0.5">
+                            <AlertCircle className="w-3.5 h-3.5 text-t-danger" strokeWidth={2} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-body1 text-t-fg1 truncate leading-snug">{task.title}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <PriorityBadge priority={task.priority} />
+                              {task.due_date && (
+                                <span className="text-caption2 text-t-danger">
+                                  Échéance {timeAgo(task.due_date)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-t-fg3 shrink-0 mt-1" />
+                        </Link>
+                      ))}
+                      {overdueTasks.length > 5 && (
+                        <div className="px-3 py-2 text-caption2 text-t-fg-brand text-center">
+                          + {overdueTasks.length - 5} autres tâches en retard
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
