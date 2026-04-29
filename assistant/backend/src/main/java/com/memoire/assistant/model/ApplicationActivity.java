@@ -22,7 +22,9 @@ public class ApplicationActivity {
         DECISION_RECORDED,
         MENTION_TRIGGERED,
         CHATBOT_COMPLETED,
-        AI_ANALYSIS_DONE
+        AI_ANALYSIS_DONE,
+        ANSWER_SUBMITTED,
+        BATCH_ANSWERS_SUBMITTED
     }
 
     public enum ActorType {

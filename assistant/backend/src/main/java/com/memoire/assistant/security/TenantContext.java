@@ -33,6 +33,16 @@ public final class TenantContext {
     public static String getRole() {
         return roleHolder.get();
     }
+    
+    public static String getUserRole() {
+        return roleHolder.get();
+    }
+    
+    public static String getUserDepartment() {
+        // Pour l'instant, on retourne null car le département n'est pas stocké
+        // Cette méthode pourrait être étendue plus tard
+        return null;
+    }
 
     public static boolean isAdmin() {
         return "ADMIN".equalsIgnoreCase(roleHolder.get());

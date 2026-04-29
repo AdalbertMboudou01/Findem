@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ThumbsUp, Minus, ThumbsDown, CheckCircle2, AlertTriangle, ChevronDown } from 'lucide-react';
+import { ThumbsUp, Minus, ThumbsDown, CheckCircle2, AlertTriangle, ChevronDown, FileText, PenTool, Clock, CheckCircle } from 'lucide-react';
 import { addDecisionInput, loadApplicationDecision, recordFinalDecision } from '../lib/domainApi';
 import type { ApplicationDecision } from '../types';
 
@@ -35,6 +35,13 @@ export default function DecisionSection({ applicationId }: Props) {
   const [rationale, setRationale] = useState('');
   const [submittingFinal, setSubmittingFinal] = useState(false);
 
+  // Signature de contrat
+  const [showContractForm, setShowContractForm] = useState(false);
+  const [contractUrl, setContractUrl] = useState('');
+  const [contractNotes, setContractNotes] = useState('');
+  const [submittingContract, setSubmittingContract] = useState(false);
+  const [contractStatus, setContractStatus] = useState<'PENDING' | 'SIGNED' | 'EXPIRED' | null>(null);
+
   useEffect(() => {
     let mounted = true;
     setLoading(true);
@@ -66,13 +73,48 @@ export default function DecisionSection({ applicationId }: Props) {
     setSubmittingFinal(true);
     setError('');
     try {
-      const updated = await recordFinalDecision(applicationId, finalStatus, rationale.trim() || undefined);
+      await recordFinalDecision(applicationId, finalStatus, rationale);
+      const updated = await loadApplicationDecision(applicationId);
       setDecision(updated);
       setShowFinalForm(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Impossible d\'enregistrer la décision.');
+      setRationale('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur lors de l\'enregistrement');
     } finally {
       setSubmittingFinal(false);
+    }
+  }
+
+  async function handleContractSignature(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmittingContract(true);
+    setError('');
+    try {
+      const response = await fetch('/api/contract-signatures/prepare', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('assistant.token')}`
+        },
+        body: JSON.stringify({
+          applicationId: applicationId,
+          contractUrl: contractUrl,
+          notes: contractNotes
+        })
+      });
+
+      if (response.ok) {
+        setContractStatus('PENDING');
+        setShowContractForm(false);
+        setContractUrl('');
+        setContractNotes('');
+      } else {
+        setError('Erreur lors de la préparation du contrat');
+      }
+    } catch (e) {
+      setError('Erreur lors de la préparation du contrat');
+    } finally {
+      setSubmittingContract(false);
     }
   }
 
@@ -236,6 +278,83 @@ export default function DecisionSection({ applicationId }: Props) {
             </button>
           </div>
         </form>
+      )}
+
+      {/* Signature de contrat */}
+      {hasFinal && finalStatus === 'RETENU' && (
+        <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-4 py-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-caption1 font-semibold text-t-fg1 flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              Signature de contrat
+            </h3>
+            {contractStatus === 'SIGNED' && (
+              <span className="flex items-center gap-1 text-caption2 text-emerald-600">
+                <CheckCircle className="w-3.5 h-3.5" />
+                Signé
+              </span>
+            )}
+            {contractStatus === 'PENDING' && (
+              <span className="flex items-center gap-1 text-caption2 text-amber-600">
+                <Clock className="w-3.5 h-3.5" />
+                En attente
+              </span>
+            )}
+          </div>
+
+          {!showContractForm && contractStatus !== 'SIGNED' && (
+            <button
+              onClick={() => setShowContractForm(true)}
+              className="w-full py-2 text-caption1 font-semibold text-white bg-t-bg-brand hover:bg-t-bg-brand-hover rounded-fluent transition-colors flex items-center justify-center gap-2"
+            >
+              <PenTool className="w-4 h-4" />
+              Préparer la signature
+            </button>
+          )}
+
+          {showContractForm && (
+            <form onSubmit={handleContractSignature} className="space-y-3">
+              <div>
+                <label className="block text-caption1 font-medium text-t-fg2 mb-2">URL du contrat</label>
+                <input
+                  type="url"
+                  value={contractUrl}
+                  onChange={(e) => setContractUrl(e.target.value)}
+                  className="w-full px-3 py-2 border border-t-stroke2 rounded-fluent bg-t-bg2 text-t-fg1 focus:outline-none focus:ring-2 focus:ring-t-stroke-brand focus:border-t-stroke-brand"
+                  placeholder="https://contrat.entreprise.com/document.pdf"
+                />
+              </div>
+
+              <div>
+                <label className="block text-caption1 font-medium text-t-fg2 mb-2">Notes internes (optionnel)</label>
+                <textarea
+                  value={contractNotes}
+                  onChange={(e) => setContractNotes(e.target.value)}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-t-stroke2 rounded-fluent bg-t-bg2 text-t-fg1 focus:outline-none focus:ring-2 focus:ring-t-stroke-brand focus:border-t-stroke-brand resize-none"
+                  placeholder="Notes pour l'équipe..."
+                />
+              </div>
+
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowContractForm(false)}
+                  className="px-3 py-1.5 text-caption1 text-t-fg2 hover:bg-t-bg1-hover rounded-fluent transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingContract}
+                  className="px-3 py-1.5 text-caption1 font-semibold text-white bg-t-bg-brand hover:bg-t-bg-brand-hover disabled:opacity-40 rounded-fluent transition-colors"
+                >
+                  {submittingContract ? 'Préparation…' : 'Préparer la signature'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
       )}
     </div>
   );

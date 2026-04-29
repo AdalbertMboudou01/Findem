@@ -5,6 +5,10 @@ import com.memoire.assistant.dto.ChatAnswerDTO;
 import com.memoire.assistant.dto.AnalysisFactFeedbackRequest;
 import com.memoire.assistant.dto.AnalysisFactFeedbackResponse;
 import com.memoire.assistant.dto.AnalysisQualityMetricsDTO;
+import com.memoire.assistant.model.Application;
+import com.memoire.assistant.model.ChatAnswer;
+import com.memoire.assistant.repository.ApplicationRepository;
+import com.memoire.assistant.repository.ChatAnswerRepository;
 import com.memoire.assistant.model.ApplicationActivity.EventType;
 import com.memoire.assistant.service.ApplicationActivityService;
 import com.memoire.assistant.service.ChatAnswerService;
@@ -40,13 +44,44 @@ public class ChatAnswerController {
     @Autowired
     private ApplicationActivityService activityService;
     
+    @Autowired
+    private ChatAnswerRepository chatAnswerRepository;
+    
+    @Autowired
+    private ApplicationRepository applicationRepository;
+    
     @PostMapping("/submit")
     @Operation(summary = "Soumettre une réponse du chatbot", description = "Enregistre une réponse du candidat à une question du chatbot")
     public ResponseEntity<Map<String, String>> submitAnswer(@Valid @RequestBody ChatAnswerDTO chatAnswerDTO) {
         try {
-            // TODO: Implémenter la sauvegarde de la réponse
+            // Récupérer l'application
+            Application application = applicationRepository.findById(chatAnswerDTO.getApplicationId())
+                .orElseThrow(() -> new IllegalArgumentException("Application non trouvée: " + chatAnswerDTO.getApplicationId()));
+            
+            // Créer la réponse
+            ChatAnswer chatAnswer = new ChatAnswer();
+            chatAnswer.setApplication(application);
+            chatAnswer.setQuestionKey(chatAnswerDTO.getQuestionKey());
+            chatAnswer.setQuestionText(chatAnswerDTO.getQuestionText());
+            chatAnswer.setAnswerText(chatAnswerDTO.getAnswer());
+            chatAnswer.setNormalizedValue(chatAnswerDTO.getNormalizedValue());
+            chatAnswer.setRequired(chatAnswerDTO.getRequired());
+            chatAnswer.setAnsweredAt(chatAnswerDTO.getAnsweredAt() != null ? chatAnswerDTO.getAnsweredAt() : java.time.LocalDateTime.now());
+            
+            // Sauvegarder
+            chatAnswerRepository.save(chatAnswer);
+            
+            // Logger l'activité
+            try {
+                activityService.logEvent(chatAnswerDTO.getApplicationId(), EventType.ANSWER_SUBMITTED,
+                    Map.of("questionKey", chatAnswerDTO.getQuestionKey(),
+                           "answerLength", chatAnswerDTO.getAnswer().length()));
+                ;
+            } catch (Exception ignored) {}
+            
             return ResponseEntity.ok(Map.of(
                 "message", "Réponse enregistrée avec succès",
+                "answerId", chatAnswer.getAnswerId().toString(),
                 "status", "success"
             ));
         } catch (Exception e) {
@@ -59,11 +94,41 @@ public class ChatAnswerController {
     
     @PostMapping("/submit-batch")
     @Operation(summary = "Soumettre plusieurs réponses", description = "Enregistre un lot de réponses du candidat")
-    public ResponseEntity<Map<String, String>> submitAnswers(@Valid @RequestBody List<ChatAnswerDTO> chatAnswers) {
+    public ResponseEntity<Map<String, Object>> submitAnswers(@Valid @RequestBody List<ChatAnswerDTO> chatAnswers) {
         try {
-            // TODO: Implémenter la sauvegarde en lot
+            // Récupérer l'application (toutes les réponses devraient avoir la même applicationId)
+            UUID applicationId = chatAnswers.get(0).getApplicationId();
+            Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new IllegalArgumentException("Application non trouvée: " + applicationId));
+            
+            // Créer et sauvegarder toutes les réponses
+            List<UUID> savedAnswerIds = new java.util.ArrayList<>();
+            for (ChatAnswerDTO dto : chatAnswers) {
+                ChatAnswer chatAnswer = new ChatAnswer();
+                chatAnswer.setApplication(application);
+                chatAnswer.setQuestionKey(dto.getQuestionKey());
+                chatAnswer.setQuestionText(dto.getQuestionText());
+                chatAnswer.setAnswerText(dto.getAnswer());
+                chatAnswer.setNormalizedValue(dto.getNormalizedValue());
+                chatAnswer.setRequired(dto.getRequired());
+                chatAnswer.setAnsweredAt(dto.getAnsweredAt() != null ? dto.getAnsweredAt() : java.time.LocalDateTime.now());
+                
+                ChatAnswer saved = chatAnswerRepository.save(chatAnswer);
+                savedAnswerIds.add(saved.getAnswerId());
+            }
+            
+            // Logger l'activité
+            try {
+                activityService.logEvent(applicationId, EventType.BATCH_ANSWERS_SUBMITTED,
+                    Map.of("answerCount", chatAnswers.size(),
+                           "answerIds", savedAnswerIds.stream().map(UUID::toString).collect(java.util.stream.Collectors.toList()))
+                );
+            } catch (Exception ignored) {}
+            
             return ResponseEntity.ok(Map.of(
                 "message", chatAnswers.size() + " réponses enregistrées avec succès",
+                "answerCount", chatAnswers.size(),
+                "answerIds", savedAnswerIds.stream().map(UUID::toString).collect(java.util.stream.Collectors.toList()),
                 "status", "success"
             ));
         } catch (Exception e) {

@@ -8,6 +8,7 @@ import com.memoire.assistant.dto.GithubAnalysisDTO;
 import com.memoire.assistant.dto.GithubSkillsAnalysisDTO;
 import com.memoire.assistant.dto.PortfolioAnalysisDTO;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.jsoup.Jsoup;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -22,16 +23,19 @@ public class CandidateController {
     private CandidateService candidateService;
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN') or hasRole('RECRUITER') or hasRole('HIRING_MANAGER')")
     public List<Candidate> getAllCandidates() {
         return candidateService.getAllCandidates();
     }
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('RECRUITER') or hasRole('HIRING_MANAGER')")
     public ResponseEntity<Candidate> getCandidateById(@PathVariable UUID id) {
         Optional<Candidate> candidate = candidateService.getCandidateById(id);
         return candidate.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN') or hasRole('RECRUITER') or hasRole('HIRING_MANAGER')")
     public Candidate createCandidate(@Valid @RequestBody CandidateCreateRequest request) {
         Candidate candidate = new Candidate();
         candidate.setFirstName(request.getFirstName());
@@ -47,6 +51,7 @@ public class CandidateController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('RECRUITER') or hasRole('HIRING_MANAGER')")
     public ResponseEntity<Candidate> updateCandidate(@PathVariable UUID id, @RequestBody Candidate candidate) {
         if (!candidateService.getCandidateById(id).isPresent()) {
             return ResponseEntity.notFound().build();
@@ -62,6 +67,7 @@ public class CandidateController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('RECRUITER') or hasRole('HIRING_MANAGER')")
     public ResponseEntity<Void> deleteCandidate(@PathVariable UUID id) {
         if (!candidateService.getCandidateById(id).isPresent()) {
             return ResponseEntity.notFound().build();
@@ -72,6 +78,7 @@ public class CandidateController {
 
     // --- Gestion du vivier ---
     @PostMapping("/{id}/pool")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('RECRUITER') or hasRole('HIRING_MANAGER')")
     public ResponseEntity<Candidate> addToPool(@PathVariable UUID id) {
         Optional<Candidate> candidateOpt = candidateService.getCandidateById(id);
         if (candidateOpt.isEmpty()) return ResponseEntity.notFound().build();
@@ -81,6 +88,7 @@ public class CandidateController {
     }
 
     @DeleteMapping("/{id}/pool")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('RECRUITER') or hasRole('HIRING_MANAGER')")
     public ResponseEntity<Candidate> removeFromPool(@PathVariable UUID id) {
         Optional<Candidate> candidateOpt = candidateService.getCandidateById(id);
         if (candidateOpt.isEmpty()) return ResponseEntity.notFound().build();
@@ -90,12 +98,14 @@ public class CandidateController {
     }
 
     @GetMapping("/pool")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('RECRUITER') or hasRole('HIRING_MANAGER')")
     public List<Candidate> getPoolCandidates() {
         return candidateService.getPoolCandidates();
     }
 
     // --- Synthèse candidat ---
     @GetMapping("/{id}/summary")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('RECRUITER') or hasRole('HIRING_MANAGER') or hasRole('OBSERVER')")
     public ResponseEntity<CandidateSummaryDTO> getCandidateSummary(@PathVariable UUID id) {
         Optional<CandidateSummaryDTO> summary = candidateService.getCandidateSummary(id);
         return summary.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
@@ -103,6 +113,7 @@ public class CandidateController {
 
     // --- Analyse GitHub simple ---
     @GetMapping("/{id}/github-analysis")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('RECRUITER') or hasRole('HIRING_MANAGER') or hasRole('OBSERVER')")
     public ResponseEntity<GithubAnalysisDTO> analyzeGithub(@PathVariable UUID id) {
         Optional<Candidate> candidateOpt = candidateService.getCandidateById(id);
         if (candidateOpt.isEmpty()) return ResponseEntity.notFound().build();
@@ -126,6 +137,7 @@ public class CandidateController {
 
     // --- Analyse avancée des compétences GitHub ---
     @PostMapping("/{id}/github-skills-analysis")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('RECRUITER') or hasRole('HIRING_MANAGER') or hasRole('OBSERVER')")
     public ResponseEntity<GithubSkillsAnalysisDTO> analyzeGithubSkills(@PathVariable UUID id, @RequestBody List<String> skills) {
         Optional<Candidate> candidateOpt = candidateService.getCandidateById(id);
         if (candidateOpt.isEmpty()) return ResponseEntity.notFound().build();
@@ -143,19 +155,16 @@ public class CandidateController {
                     if (!(repoObj instanceof java.util.Map)) continue;
                     java.util.Map repo = (java.util.Map) repoObj;
                     String desc = repo.getOrDefault("description", "").toString().toLowerCase();
-                    String lang = repo.getOrDefault("language", "").toString().toLowerCase();
                     for (String skill : skills) {
-                        String skillLc = skill.toLowerCase();
-                        if (desc.contains(skillLc) || lang.contains(skillLc)) found.add(skill);
+                        if (desc.contains(skill.toLowerCase())) {
+                            found.add(skill);
+                        }
                     }
                 }
             }
-            java.util.List<String> foundList = new java.util.ArrayList<>(found);
-            java.util.List<String> missing = new java.util.ArrayList<>();
-            for (String skill : skills) if (!found.contains(skill)) missing.add(skill);
             GithubSkillsAnalysisDTO dto = new GithubSkillsAnalysisDTO();
-            dto.setLanguages(foundList);
-            dto.setTechnologies(foundList);
+            dto.setFoundSkills(new java.util.ArrayList<>(found));
+            dto.setTotalSkills(skills);
             return ResponseEntity.ok(dto);
         } catch (Exception e) {
             return ResponseEntity.status(502).build();
@@ -164,6 +173,7 @@ public class CandidateController {
 
     // --- Analyse avancée du portfolio ---
     @PostMapping("/{id}/portfolio-analysis")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('RECRUITER') or hasRole('HIRING_MANAGER') or hasRole('OBSERVER')")
     public ResponseEntity<PortfolioAnalysisDTO> analyzePortfolio(@PathVariable UUID id, @RequestBody List<String> skills) {
         Optional<Candidate> candidateOpt = candidateService.getCandidateById(id);
         if (candidateOpt.isEmpty()) return ResponseEntity.notFound().build();

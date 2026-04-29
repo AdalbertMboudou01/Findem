@@ -95,7 +95,7 @@ export function CandidateEmpty() {
   );
 }
 
-type DetailTab = 'synthese' | 'cv' | 'suivi';
+type DetailTab = 'evaluation' | 'profil' | 'equipe';
 
 export default function CandidateDetail() {
   const { id } = useParams<{ id: string }>();
@@ -105,7 +105,7 @@ export default function CandidateDetail() {
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState('');
-  const [activeTab, setActiveTab] = useState<DetailTab>('synthese');
+  const [activeTab, setActiveTab] = useState<DetailTab>('evaluation');
   const [chatbotResponses, setChatbotResponses] = useState<{ question: string; answer: string }[]>([]);
   const [chatbotCompletedAt, setChatbotCompletedAt] = useState<string | null>(null);
   const [chatbotLoading, setChatbotLoading] = useState(false);
@@ -115,6 +115,7 @@ export default function CandidateDetail() {
   const [factFeedbackError, setFactFeedbackError] = useState('');
   const [factDrafts, setFactDrafts] = useState<Record<string, { decision: AnalysisFactFeedbackDecision; correctedFinding: string; reviewerComment: string; saving: boolean }>>({})
   const [allowedTransitions, setAllowedTransitions] = useState<string[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -312,9 +313,9 @@ export default function CandidateDetail() {
   }
 
   const tabs: { key: DetailTab; label: string; icon: typeof FileText }[] = [
-    { key: 'synthese', label: 'Synthèse',    icon: FileText },
-    { key: 'cv',       label: 'CV',          icon: Download },
-    { key: 'suivi',    label: 'Suivi',       icon: Users2   },
+    { key: 'evaluation', label: 'Évaluation', icon: FileText },
+    { key: 'profil',     label: 'Profil',      icon: Download },
+    { key: 'equipe',     label: 'Équipe',      icon: Users2   },
   ];
 
   if (loading) {
@@ -453,8 +454,35 @@ export default function CandidateDetail() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4">
-        {activeTab === 'synthese' && (
+        {activeTab === 'evaluation' && (
           <div className="max-w-[800px] space-y-3">
+            {/* Lecture recruteur - Action prioritaire */}
+            <div className="bg-t-brand-160 border border-t-brand-140 rounded-fluent px-5 py-4">
+              <h3 className="inline-flex items-center gap-2 text-caption1 font-semibold text-t-brand-80 uppercase tracking-wider mb-2">
+                <CheckCircle2 className="w-3.5 h-3.5" />Lecture recruteur
+              </h3>
+              <p className="text-body1 text-t-brand-70">{c.action_recommandee}</p>
+              {c.ai_recommended_status && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center px-2 py-1 rounded-fluent bg-t-bg1 text-caption1 text-t-fg2 border border-t-stroke3">
+                    Statut suggéré : {labelForStatus(c.ai_recommended_status)}
+                  </span>
+                  {canApplyAiRecommendation && (
+                    <button
+                      onClick={() => handleStatusChange(c.ai_recommended_status as CandidateStatus)}
+                      disabled={actionLoading}
+                      className="h-7 px-2.5 text-caption1 font-semibold rounded-fluent inline-flex items-center gap-1 bg-t-brand-80 text-white hover:opacity-90 disabled:opacity-40 transition-opacity"
+                    >
+                      Appliquer la recommandation
+                    </button>
+                  )}
+                  {!canApplyAiRecommendation && (
+                    <span className="text-caption1 text-t-fg3">Statut déjà aligné avec la recommandation.</span>
+                  )}
+                </div>
+              )}
+            </div>
+
             <Section icon={MessageSquare} title="Motivation">
               {c.motivation_assessment && (
                 <p className="text-caption1 text-t-fg2 mb-2">{c.motivation_assessment}</p>
@@ -673,32 +701,6 @@ export default function CandidateDetail() {
               </div>
             )}
 
-            <div className="bg-t-brand-160 border border-t-brand-140 rounded-fluent px-5 py-4">
-              <h3 className="inline-flex items-center gap-2 text-caption1 font-semibold text-t-brand-80 uppercase tracking-wider mb-2">
-                <CheckCircle2 className="w-3.5 h-3.5" />Lecture recruteur
-              </h3>
-              <p className="text-body1 text-t-brand-70">{c.action_recommandee}</p>
-              {c.ai_recommended_status && (
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center px-2 py-1 rounded-fluent bg-t-bg1 text-caption1 text-t-fg2 border border-t-stroke3">
-                    Statut suggéré : {labelForStatus(c.ai_recommended_status)}
-                  </span>
-                  {canApplyAiRecommendation && (
-                    <button
-                      onClick={() => handleStatusChange(c.ai_recommended_status as CandidateStatus)}
-                      disabled={actionLoading}
-                      className="h-7 px-2.5 text-caption1 font-semibold rounded-fluent inline-flex items-center gap-1 bg-t-brand-80 text-white hover:opacity-90 disabled:opacity-40 transition-opacity"
-                    >
-                      Appliquer la recommandation
-                    </button>
-                  )}
-                  {!canApplyAiRecommendation && (
-                    <span className="text-caption1 text-t-fg3">Statut déjà aligné avec la recommandation.</span>
-                  )}
-                </div>
-              )}
-            </div>
-
             <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <MetaItem label="Offre" value={offer?.title || '-'} />
@@ -749,9 +751,36 @@ export default function CandidateDetail() {
           </div>
         )}
 
-        {activeTab === 'cv' && <CvViewer candidate={c} />}
+        {activeTab === 'profil' && (
+          <div className="max-w-[800px] space-y-6">
+            {/* CV Viewer */}
+            <div>
+              <h3 className="text-caption1 font-semibold text-t-fg2 uppercase tracking-wide mb-3">CV</h3>
+              <CvViewer candidate={c} />
+            </div>
 
-        {activeTab === 'suivi' && (
+            {/* GitHub et Portfolio */}
+            {(c.github_url || c.portfolio_url) && (
+              <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
+                <h3 className="text-caption1 font-semibold text-t-fg2 uppercase tracking-wide mb-3">Liens professionnels</h3>
+                <div className="flex items-center gap-4">
+                  {c.github_url && (
+                    <a href={c.github_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-caption1 text-t-fg-brand hover:underline">
+                      <Github className="w-3.5 h-3.5" />GitHub
+                    </a>
+                  )}
+                  {c.portfolio_url && (
+                    <a href={c.portfolio_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-caption1 text-t-fg-brand hover:underline">
+                      <Globe className="w-3.5 h-3.5" />Portfolio
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'equipe' && (
           <div className="max-w-[800px] space-y-6">
             {c.application_id ? (
               <>
@@ -777,12 +806,22 @@ export default function CandidateDetail() {
                   </div>
                 </div>
 
-                {/* Historique */}
+                {/* Historique - Accordéon */}
                 <div className="border-t border-t-stroke3 pt-6">
-                  <h3 className="text-caption1 font-semibold text-t-fg2 uppercase tracking-wide mb-3">Historique</h3>
-                  <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4">
-                    <ActivityTimeline applicationId={c.application_id} />
+                  <div
+                    className="flex items-center justify-between cursor-pointer py-2"
+                    onClick={() => setShowHistory((v: boolean) => !v)}
+                  >
+                    <h3 className="text-caption1 font-semibold text-t-fg2 uppercase tracking-wide">Historique</h3>
+                    <ChevronDown
+                      className={`w-4 h-4 text-t-fg3 transition-transform ${showHistory ? '' : '-rotate-90'}`}
+                    />
                   </div>
+                  {showHistory && (
+                    <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-5 py-4 mt-2">
+                      <ActivityTimeline applicationId={c.application_id} />
+                    </div>
+                  )}
                 </div>
               </>
             ) : (

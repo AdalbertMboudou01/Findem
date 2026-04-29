@@ -4,12 +4,16 @@ import com.memoire.assistant.dto.AuthRequest;
 import com.memoire.assistant.dto.AuthResponse;
 import com.memoire.assistant.dto.RegisterRequest;
 import com.memoire.assistant.dto.RegisterCompanyOwnerRequest;
+import com.memoire.assistant.dto.PasswordResetRequest;
+import com.memoire.assistant.dto.PasswordResetConfirmRequest;
+import com.memoire.assistant.dto.PasswordChangeRequest;
 import com.memoire.assistant.model.Recruiter;
 import com.memoire.assistant.model.User;
 import com.memoire.assistant.repository.RecruiterRepository;
 import com.memoire.assistant.repository.UserRepository;
 import com.memoire.assistant.security.JwtUtil;
 import com.memoire.assistant.service.AuthOnboardingService;
+import com.memoire.assistant.service.PasswordResetService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -19,7 +23,12 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import jakarta.validation.Valid;
+import com.memoire.assistant.security.TenantContext;
+
+import java.util.Map;
 
 import java.util.Optional;
 
@@ -38,6 +47,8 @@ public class AuthController {
     private RecruiterRepository recruiterRepository;
     @Autowired
     private AuthOnboardingService authOnboardingService;
+    @Autowired
+    private PasswordResetService passwordResetService;
 
     @PostMapping("/login")
     public AuthResponse login(@RequestBody AuthRequest request) {
@@ -111,5 +122,53 @@ public class AuthController {
             recruiter != null && recruiter.getCompany() != null ? recruiter.getCompany().getCompanyId() : null,
             recruiter != null
         );
+    }
+    
+    @PostMapping("/change-password")
+    public ResponseEntity<Map<String, String>> changePassword(@Valid @RequestBody PasswordChangeRequest request) {
+        try {
+            // Valider que les nouveaux mots de passe correspondent
+            if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "message", "Les nouveaux mots de passe ne correspondent pas",
+                    "status", "error"
+                ));
+            }
+            
+            // Récupérer l'utilisateur actuel
+            User currentUser = userRepository.findById(TenantContext.getUserId())
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+            
+            // Vérifier l'ancien mot de passe
+            if (!passwordEncoder.matches(request.getCurrentPassword(), currentUser.getPassword())) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "message", "L'ancien mot de passe est incorrect",
+                    "status", "error"
+                ));
+            }
+            
+            // Vérifier que le nouveau mot de passe est différent de l'ancien
+            if (passwordEncoder.matches(request.getNewPassword(), currentUser.getPassword())) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "message", "Le nouveau mot de passe doit être différent de l'ancien",
+                    "status", "error"
+                ));
+            }
+            
+            // Mettre à jour le mot de passe
+            currentUser.setPassword(passwordEncoder.encode(request.getNewPassword()));
+            userRepository.save(currentUser);
+            
+            return ResponseEntity.ok(Map.of(
+                "message", "Mot de passe changé avec succès",
+                "status", "success"
+            ));
+            
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "message", "Erreur lors du changement de mot de passe: " + e.getMessage(),
+                "status", "error"
+            ));
+        }
     }
 }

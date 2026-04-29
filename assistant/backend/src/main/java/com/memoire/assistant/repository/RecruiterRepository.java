@@ -10,4 +10,5 @@ public interface RecruiterRepository extends JpaRepository<Recruiter, UUID> {
     Optional<Recruiter> findByAuthUserId(UUID authUserId);
     Optional<Recruiter> findByRecruiterIdAndCompany_CompanyId(UUID recruiterId, UUID companyId);
     Optional<Recruiter> findByCompany_CompanyIdAndEmailIgnoreCase(UUID companyId, String email);
+    Optional<Recruiter> findByAuthUserIdAndCompany_CompanyId(UUID authUserId, UUID companyId);
 }

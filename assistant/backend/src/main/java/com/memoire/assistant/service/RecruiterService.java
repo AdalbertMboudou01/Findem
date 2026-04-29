@@ -29,6 +29,10 @@ public class RecruiterService {
     public Optional<Recruiter> getRecruiterByIdAndCompanyId(UUID recruiterId, UUID companyId) {
         return recruiterRepository.findByRecruiterIdAndCompany_CompanyId(recruiterId, companyId);
     }
+    
+    public Optional<Recruiter> getRecruiterByAuthUserIdAndCompanyId(UUID authUserId, UUID companyId) {
+        return recruiterRepository.findByAuthUserIdAndCompany_CompanyId(authUserId, companyId);
+    }
 
     public Recruiter saveRecruiter(Recruiter recruiter) {
         return recruiterRepository.save(recruiter);

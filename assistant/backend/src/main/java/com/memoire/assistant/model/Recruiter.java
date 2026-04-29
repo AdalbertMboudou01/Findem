@@ -8,6 +8,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.Column;
 import java.util.UUID;
 
 @Entity
@@ -30,6 +31,15 @@ public class Recruiter {
     private String role;
     private String status;
     private UUID authUserId;
+    
+    @Column(name = "photo_url")
+    private String photoUrl;
+    
+    @Column(name = "bio", columnDefinition = "TEXT")
+    private String bio;
+    
+    @Column(name = "phone")
+    private String phone;
 
     // Getters & Setters
     public UUID getRecruiterId() {
@@ -94,5 +104,29 @@ public class Recruiter {
 
     public void setDepartment(Department department) {
         this.department = department;
+    }
+    
+    public String getPhotoUrl() {
+        return photoUrl;
+    }
+    
+    public void setPhotoUrl(String photoUrl) {
+        this.photoUrl = photoUrl;
+    }
+    
+    public String getBio() {
+        return bio;
+    }
+    
+    public void setBio(String bio) {
+        this.bio = bio;
+    }
+    
+    public String getPhone() {
+        return phone;
+    }
+    
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 }
