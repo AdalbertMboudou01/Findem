@@ -10,8 +10,8 @@ import {
 } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import { useEffect, useState } from 'react';
-import type { Offer, Candidate } from '../types';
-import { loadRecruitmentData, loadOverdueTasks, loadTeamView } from '../lib/domainApi';
+import type { Offer, Candidate, InAppNotification } from '../types';
+import { loadRecruitmentData, loadOverdueTasks, loadTeamView, loadMyInAppNotifications, markInAppNotificationAsRead, markAllInAppNotificationsAsRead } from '../lib/domainApi';
 
 type MappedTask = Awaited<ReturnType<typeof loadOverdueTasks>>[number];
 type AvisEntry = { application_id: string; candidate_name: string; status: string; created_at: string; };
@@ -120,9 +120,11 @@ export default function Dashboard() {
   const [overdueTasks, setOverdueTasks] = useState<MappedTask[]>([]);
   const [awaitingAvis, setAwaitingAvis] = useState<AvisEntry[]>([]);
   const [recentCandidates, setRecentCandidates] = useState<Candidate[]>([]);
+  const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [loadingOffers, setLoadingOffers] = useState(true);
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [loadingAvis, setLoadingAvis] = useState(true);
+  const [loadingNotifs, setLoadingNotifs] = useState(true);
 
   useEffect(() => {
     let mounted = true;
@@ -178,8 +180,39 @@ export default function Dashboard() {
       }
     })();
 
+    // Chargement notifications
+    (async () => {
+      try {
+        const { notifications } = await loadMyInAppNotifications();
+        if (!mounted) return;
+        // On affiche les 5 premières (non lues en tête, puis lues)
+        setNotifications(
+          [...notifications]
+            .sort((a, b) => {
+              if (a.read !== b.read) return a.read ? 1 : -1;
+              return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+            })
+            .slice(0, 5)
+        );
+      } catch { /* silencieux */ } finally {
+        if (mounted) setLoadingNotifs(false);
+      }
+    })();
+
     return () => { mounted = false; };
   }, []);
+
+  async function handleMarkRead(id: string) {
+    await markInAppNotificationAsRead(id);
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+  }
+
+  async function handleMarkAllRead() {
+    await markAllInAppNotificationsAsRead();
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  }
 
   return (
     <>
@@ -379,17 +412,68 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Bloc D — Notifications récentes (Étape 5) */}
+              {/* Bloc D — Notifications récentes */}
               <div>
                 <SectionHeader
                   icon={Bell}
                   title="Notifications récentes"
+                  count={notifications.filter((n) => !n.read).length || undefined}
                   accentColor="text-t-fg2"
                   badgeColor="bg-t-bg4"
                 />
                 <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent overflow-hidden">
-                  {/* Étape 5 — données réelles */}
-                  <EmptyState icon={CheckCircle2} message="Aucune notification récente" />
+                  {loadingNotifs ? (
+                    <ListSkeleton rows={3} />
+                  ) : notifications.length === 0 ? (
+                    <EmptyState icon={CheckCircle2} message="Aucune notification récente" />
+                  ) : (
+                    <>
+                      <div className="divide-y divide-t-stroke3">
+                        {notifications.map((notif) => (
+                          <div
+                            key={notif.id}
+                            className={`flex items-start gap-3 px-3 py-2.5 transition-colors ${
+                              notif.read ? 'opacity-60' : 'bg-t-bg-brand-selected/30'
+                            }`}
+                          >
+                            {/* Indicateur non-lu */}
+                            <div className="mt-1.5 shrink-0">
+                              {!notif.read
+                                ? <span className="w-2 h-2 rounded-full bg-t-brand-80 block" />
+                                : <span className="w-2 h-2 rounded-full bg-t-stroke3 block" />
+                              }
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-body1 text-t-fg1 leading-snug truncate">{notif.title}</p>
+                              {notif.message && (
+                                <p className="text-caption2 text-t-fg3 truncate">{notif.message}</p>
+                              )}
+                              <p className="text-caption2 text-t-fg3 mt-0.5">{timeAgo(notif.created_at)}</p>
+                            </div>
+                            {!notif.read && (
+                              <button
+                                onClick={() => handleMarkRead(notif.id)}
+                                className="text-caption2 text-t-fg-brand hover:underline shrink-0 mt-0.5"
+                                title="Marquer comme lu"
+                              >
+                                Lu
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      {notifications.some((n) => !n.read) && (
+                        <div className="px-3 py-2 border-t border-t-stroke3">
+                          <button
+                            onClick={handleMarkAllRead}
+                            className="text-caption2 text-t-fg-brand hover:underline w-full text-center"
+                          >
+                            Tout marquer comme lu
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
 
