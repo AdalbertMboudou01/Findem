@@ -10,10 +10,11 @@ import {
 } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import { useEffect, useState } from 'react';
-import type { Offer } from '../types';
-import { loadRecruitmentData, loadOverdueTasks } from '../lib/domainApi';
+import type { Offer, Candidate } from '../types';
+import { loadRecruitmentData, loadOverdueTasks, loadTeamView } from '../lib/domainApi';
 
 type MappedTask = Awaited<ReturnType<typeof loadOverdueTasks>>[number];
+type AvisEntry = { application_id: string; candidate_name: string; status: string; created_at: string; };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -117,22 +118,43 @@ export default function Dashboard() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [candidatesCount, setCandidatesCount] = useState(0);
   const [overdueTasks, setOverdueTasks] = useState<MappedTask[]>([]);
+  const [awaitingAvis, setAwaitingAvis] = useState<AvisEntry[]>([]);
   const [loadingOffers, setLoadingOffers] = useState(true);
   const [loadingTasks, setLoadingTasks] = useState(true);
+  const [loadingAvis, setLoadingAvis] = useState(true);
 
   useEffect(() => {
     let mounted = true;
-    // Chargement offres + compteurs
+
+    // Chargement offres + compteurs + join pour "attente avis"
     (async () => {
       try {
-        const data = await loadRecruitmentData();
+        const [data, avisEntries] = await Promise.all([
+          loadRecruitmentData(),
+          loadTeamView('attente_avis'),
+        ]);
         if (!mounted) return;
+        const candidateMap = new Map<string, Candidate>(
+          data.candidates.map((c) => [c.application_id ?? '', c])
+        );
         setOffers(data.offers.filter((o) => o.status === 'ouvert'));
         setCandidatesCount(data.candidates.length);
+        setAwaitingAvis(
+          avisEntries.map((e) => {
+            const c = candidateMap.get(e.application_id);
+            return {
+              application_id: e.application_id,
+              candidate_name: c ? `${c.first_name} ${c.last_name}` : 'Candidat',
+              status: e.status,
+              created_at: e.created_at,
+            };
+          })
+        );
       } catch { /* silencieux */ } finally {
-        if (mounted) setLoadingOffers(false);
+        if (mounted) { setLoadingOffers(false); setLoadingAvis(false); }
       }
     })();
+
     // Chargement tâches en retard
     (async () => {
       try {
@@ -143,6 +165,7 @@ export default function Dashboard() {
         if (mounted) setLoadingTasks(false);
       }
     })();
+
     return () => { mounted = false; };
   }, []);
 
@@ -186,8 +209,10 @@ export default function Dashboard() {
             <div className="hidden sm:block bg-t-bg1 border border-t-stroke3 rounded-fluent px-4 py-3">
               <p className="text-caption2 text-t-fg3">En attente de décision</p>
               <p className="text-subtitle2 font-semibold text-t-fg1 mt-0.5">
-                {/* Étape 3 — sera rempli dynamiquement */}
-                <span className="inline-block w-8 h-4 bg-t-bg4 rounded animate-pulse" />
+                {loadingAvis
+                  ? <span className="inline-block w-8 h-4 bg-t-bg4 rounded animate-pulse" />
+                  : awaitingAvis.length
+                }
               </p>
             </div>
           </div>
@@ -249,18 +274,47 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Bloc B — Candidatures en attente de mon avis (Étape 3) */}
+              {/* Bloc B — Candidatures en attente de mon avis */}
               <div>
                 <SectionHeader
                   icon={Clock}
                   title="En attente de mon avis"
+                  count={awaitingAvis.length > 0 ? awaitingAvis.length : undefined}
                   linkTo="/candidates"
                   accentColor="text-t-warning"
                   badgeColor="bg-t-warning-bg"
                 />
                 <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent overflow-hidden">
-                  {/* Étape 3 — données réelles */}
-                  <ListSkeleton rows={3} />
+                  {loadingAvis ? (
+                    <ListSkeleton rows={3} />
+                  ) : awaitingAvis.length === 0 ? (
+                    <EmptyState icon={CheckCircle2} message="Tous les avis ont été donnés 👍" />
+                  ) : (
+                    <div className="divide-y divide-t-stroke3">
+                      {awaitingAvis.slice(0, 5).map((entry) => (
+                        <Link
+                          key={entry.application_id}
+                          to={`/candidates/${entry.application_id}`}
+                          className="flex items-center gap-3 px-3 py-2.5 hover:bg-t-bg1-hover transition-colors"
+                        >
+                          <div className="w-7 h-7 rounded-full bg-t-warning-bg flex items-center justify-center shrink-0 text-caption2 font-semibold text-t-warning">
+                            {entry.candidate_name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-body1 text-t-fg1 truncate">{entry.candidate_name}</p>
+                            <p className="text-caption2 text-t-fg3">Reçu {timeAgo(entry.created_at)}</p>
+                          </div>
+                          <span className="text-caption2 text-t-warning font-medium shrink-0">Avis requis</span>
+                          <ChevronRight className="w-4 h-4 text-t-fg3 shrink-0" />
+                        </Link>
+                      ))}
+                      {awaitingAvis.length > 5 && (
+                        <div className="px-3 py-2 text-caption2 text-t-fg-brand text-center">
+                          + {awaitingAvis.length - 5} autres candidatures en attente
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
