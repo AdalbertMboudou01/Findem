@@ -1,33 +1,103 @@
 import { Link } from 'react-router-dom';
 import {
-  Users,
   Briefcase,
-  Star,
-  XCircle,
-  Bot,
-  CalendarDays,
-  UserCheck,
   ChevronRight,
+  AlertCircle,
+  Clock,
+  Users,
+  Bell,
+  CheckCircle2,
 } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
-import { TriBadge } from '../components/ui/Badge';
-import { useEffect, useMemo, useState } from 'react';
-import type { Candidate, Offer } from '../types';
+import { useEffect, useState } from 'react';
+import type { Offer } from '../types';
 import { loadRecruitmentData } from '../lib/domainApi';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
   const h = Math.floor(diff / 3600000);
-  if (h < 1) return 'A l\'instant';
+  if (h < 1) return 'À l\'instant';
   if (h < 24) return `Il y a ${h}h`;
   return `Il y a ${Math.floor(h / 24)}j`;
 }
 
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+/** Titre de section avec lien optionnel */
+function SectionHeader({
+  icon: Icon,
+  title,
+  count,
+  linkTo,
+  linkLabel = 'Voir tout',
+  accentColor = 'text-t-fg3',
+  badgeColor = 'bg-t-bg4',
+}: {
+  icon: React.ElementType;
+  title: string;
+  count?: number;
+  linkTo?: string;
+  linkLabel?: string;
+  accentColor?: string;
+  badgeColor?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center gap-2">
+        <div className={`w-6 h-6 rounded-fluent flex items-center justify-center ${badgeColor}`}>
+          <Icon className={`w-3.5 h-3.5 ${accentColor}`} strokeWidth={2} />
+        </div>
+        <h2 className="text-caption1 font-semibold text-t-fg1">{title}</h2>
+        {count !== undefined && (
+          <span className="text-caption2 font-semibold text-t-fg3 bg-t-bg4 rounded-full px-1.5 py-0.5 min-w-[20px] text-center">
+            {count}
+          </span>
+        )}
+      </div>
+      {linkTo && (
+        <Link to={linkTo} className="text-caption2 text-t-fg-brand hover:underline inline-flex items-center gap-0.5">
+          {linkLabel} <ChevronRight className="w-3 h-3" />
+        </Link>
+      )}
+    </div>
+  );
+}
+
+/** Skeleton de chargement pour une liste */
+function ListSkeleton({ rows = 4 }: { rows?: number }) {
+  return (
+    <div className="divide-y divide-t-stroke3">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 px-3 py-3">
+          <div className="w-7 h-7 rounded-full bg-t-bg4 animate-pulse shrink-0" />
+          <div className="flex-1 space-y-1.5">
+            <div className="h-2.5 bg-t-bg4 rounded animate-pulse w-3/4" />
+            <div className="h-2 bg-t-bg4 rounded animate-pulse w-1/2" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Bloc vide générique */
+function EmptyState({ icon: Icon, message }: { icon: React.ElementType; message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-8 gap-2 text-t-fg3">
+      <Icon className="w-8 h-8 opacity-30" strokeWidth={1.2} />
+      <p className="text-caption1">{message}</p>
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function Dashboard() {
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [candidatesCount, setCandidatesCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     let mounted = true;
@@ -35,203 +105,168 @@ export default function Dashboard() {
       try {
         const data = await loadRecruitmentData();
         if (!mounted) return;
-        setCandidates(data.candidates);
-        setOffers(data.offers);
-      } catch (err) {
-        if (!mounted) return;
-        setError(err instanceof Error ? err.message : 'Impossible de charger le tableau de bord.');
-      } finally {
+        setOffers(data.offers.filter((o) => o.status === 'ouvert'));
+        setCandidatesCount(data.candidates.length);
+      } catch { /* silencieux */ } finally {
         if (mounted) setLoading(false);
       }
     })();
-
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
-
-  const recentCandidates = useMemo(
-    () => [...candidates].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 6),
-    [candidates],
-  );
-
-  const activeOffers = useMemo(() => offers.filter((o) => o.status === 'ouvert'), [offers]);
-
-  const activityFeed = useMemo(() => {
-    return recentCandidates.slice(0, 6).map((candidate) => {
-      if (candidate.tri_category === 'prioritaire') {
-        return {
-          icon: Star,
-          text: `${candidate.first_name} ${candidate.last_name} classe prioritaire`,
-          time: timeAgo(candidate.created_at),
-          accent: 'text-t-success',
-        };
-      }
-      if (candidate.status === 'non_retenu') {
-        return {
-          icon: XCircle,
-          text: `${candidate.first_name} ${candidate.last_name} classe non retenu`,
-          time: timeAgo(candidate.created_at),
-          accent: 'text-t-danger',
-        };
-      }
-      if (candidate.status === 'retenu_entretien') {
-        return {
-          icon: UserCheck,
-          text: `${candidate.first_name} ${candidate.last_name} retenu pour entretien`,
-          time: timeAgo(candidate.created_at),
-          accent: 'text-t-success',
-        };
-      }
-
-      return {
-        icon: Bot,
-        text: `Nouvelle candidature: ${candidate.first_name} ${candidate.last_name}`,
-        time: timeAgo(candidate.created_at),
-        accent: 'text-t-brand-80',
-      };
-    });
-  }, [recentCandidates]);
 
   return (
     <>
-      <TopBar title="Activite" subtitle="Pilotage quotidien du recrutement" />
+      <TopBar title="Accueil" subtitle="Ce qui nécessite votre attention aujourd'hui" />
+
       <div className="flex-1 overflow-y-auto bg-t-bg3">
-        <div className="px-4 md:px-6 py-4 md:py-5 space-y-4">
-          {loading && (
-            <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-4 py-3 text-caption1 text-t-fg3">
-              Chargement des donnees...
-            </div>
-          )}
-          {!loading && error && (
-            <div className="bg-t-bg1 border border-t-danger rounded-fluent px-4 py-3 text-caption1 text-t-danger">
-              {error}
-            </div>
-          )}
+        <div className="px-4 md:px-6 py-4 md:py-5 space-y-5">
 
-          {!loading && !error && (
-            <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-4 py-3">
-                <p className="text-caption1 text-t-fg3">Candidats</p>
-                <p className="text-subtitle2 font-semibold text-t-fg1">{candidates.length}</p>
-              </div>
-              <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-4 py-3">
-                <p className="text-caption1 text-t-fg3">Offres actives</p>
-                <p className="text-subtitle2 font-semibold text-t-fg1">{activeOffers.length}</p>
-              </div>
-              <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-4 py-3">
-                <p className="text-caption1 text-t-fg3">Prioritaires</p>
-                <p className="text-subtitle2 font-semibold text-t-fg1">
-                  {candidates.filter((c) => c.tri_category === 'prioritaire').length}
-                </p>
-              </div>
-            </section>
-          )}
-
-          {/* Quick actions bar */}
+          {/* ── Barre d'actions rapides ── */}
           <div className="flex flex-wrap items-center gap-2">
-            <Link to="/offers" className="h-8 px-3 text-caption1 font-semibold text-white bg-t-bg-brand hover:bg-t-bg-brand-hover rounded-fluent inline-flex items-center gap-1.5 transition-colors">
-              <Briefcase className="w-3.5 h-3.5" /> Creer une offre
+            <Link
+              to="/offers"
+              className="h-8 px-3 text-caption1 font-semibold text-white bg-t-bg-brand hover:bg-t-bg-brand-hover rounded-fluent inline-flex items-center gap-1.5 transition-colors"
+            >
+              <Briefcase className="w-3.5 h-3.5" /> Nouvelle offre
             </Link>
-            <Link to="/candidates" className="h-8 px-3 text-caption1 font-semibold text-t-fg2 border border-t-stroke2 bg-t-bg1 hover:bg-t-bg1-hover rounded-fluent inline-flex items-center gap-1.5 transition-colors">
-              <Users className="w-3.5 h-3.5" /> Voir les candidats
-            </Link>
-            <Link to="/chatbot" className="hidden sm:inline-flex h-8 px-3 text-caption1 font-semibold text-t-fg2 border border-t-stroke2 bg-t-bg1 hover:bg-t-bg1-hover rounded-fluent items-center gap-1.5 transition-colors">
-              <Bot className="w-3.5 h-3.5" /> Configurer le chatbot
-            </Link>
-            <Link to="/entreprise" className="hidden sm:inline-flex h-8 px-3 text-caption1 font-semibold text-t-fg2 border border-t-stroke2 bg-t-bg1 hover:bg-t-bg1-hover rounded-fluent items-center gap-1.5 transition-colors">
-              <CalendarDays className="w-3.5 h-3.5" /> Gerer l'equipe
+            <Link
+              to="/candidates"
+              className="h-8 px-3 text-caption1 font-semibold text-t-fg2 border border-t-stroke2 bg-t-bg1 hover:bg-t-bg1-hover rounded-fluent inline-flex items-center gap-1.5 transition-colors"
+            >
+              <Users className="w-3.5 h-3.5" /> Candidatures
             </Link>
           </div>
 
-          {/* Main grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* ── Compteurs rapides ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-4 py-3">
+              <p className="text-caption2 text-t-fg3">Candidatures totales</p>
+              <p className="text-subtitle2 font-semibold text-t-fg1 mt-0.5">
+                {loading ? <span className="inline-block w-8 h-4 bg-t-bg4 rounded animate-pulse" /> : candidatesCount}
+              </p>
+            </div>
+            <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent px-4 py-3">
+              <p className="text-caption2 text-t-fg3">Offres ouvertes</p>
+              <p className="text-subtitle2 font-semibold text-t-fg1 mt-0.5">
+                {loading ? <span className="inline-block w-8 h-4 bg-t-bg4 rounded animate-pulse" /> : offers.length}
+              </p>
+            </div>
+            <div className="hidden sm:block bg-t-bg1 border border-t-stroke3 rounded-fluent px-4 py-3">
+              <p className="text-caption2 text-t-fg3">En attente de décision</p>
+              <p className="text-subtitle2 font-semibold text-t-fg1 mt-0.5">
+                {/* Étape 3 — sera rempli dynamiquement */}
+                <span className="inline-block w-8 h-4 bg-t-bg4 rounded animate-pulse" />
+              </p>
+            </div>
+          </div>
 
-            {/* Column 1: Recent candidates */}
-            <div className="flex flex-col">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-caption1 font-semibold text-t-fg2 uppercase tracking-wider">Candidatures recentes</h2>
-                <Link to="/candidates" className="text-caption1 text-t-fg-brand hover:underline inline-flex items-center gap-0.5">
-                  Tout <ChevronRight className="w-3 h-3" />
-                </Link>
+          {/* ── Grille principale : 2 colonnes ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+            {/* Colonne gauche */}
+            <div className="space-y-4">
+
+              {/* Bloc A — Tâches en retard (Étape 2) */}
+              <div>
+                <SectionHeader
+                  icon={AlertCircle}
+                  title="Tâches en retard"
+                  linkTo="/candidates"
+                  linkLabel="Mes tâches"
+                  accentColor="text-t-danger"
+                  badgeColor="bg-t-danger-bg"
+                />
+                <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent overflow-hidden">
+                  {/* Étape 2 — données réelles */}
+                  <ListSkeleton rows={3} />
+                </div>
               </div>
-              <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent overflow-hidden flex-1">
-                {recentCandidates.map((c, i) => (
+
+              {/* Bloc B — Candidatures en attente de mon avis (Étape 3) */}
+              <div>
+                <SectionHeader
+                  icon={Clock}
+                  title="En attente de mon avis"
+                  linkTo="/candidates"
+                  accentColor="text-t-warning"
+                  badgeColor="bg-t-warning-bg"
+                />
+                <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent overflow-hidden">
+                  {/* Étape 3 — données réelles */}
+                  <ListSkeleton rows={3} />
+                </div>
+              </div>
+
+            </div>
+
+            {/* Colonne droite */}
+            <div className="space-y-4">
+
+              {/* Bloc C — Nouvelles candidatures < 48h (Étape 4) */}
+              <div>
+                <SectionHeader
+                  icon={Users}
+                  title="Nouvelles candidatures"
+                  linkTo="/candidates"
+                  accentColor="text-t-brand-80"
+                  badgeColor="bg-t-bg-brand-selected"
+                />
+                <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent overflow-hidden">
+                  {/* Étape 4 — données réelles */}
+                  <ListSkeleton rows={4} />
+                </div>
+              </div>
+
+              {/* Bloc D — Notifications récentes (Étape 5) */}
+              <div>
+                <SectionHeader
+                  icon={Bell}
+                  title="Notifications récentes"
+                  accentColor="text-t-fg2"
+                  badgeColor="bg-t-bg4"
+                />
+                <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent overflow-hidden">
+                  {/* Étape 5 — données réelles */}
+                  <EmptyState icon={CheckCircle2} message="Aucune notification récente" />
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* ── Offres actives (bas de page) ── */}
+          {offers.length > 0 && (
+            <div>
+              <SectionHeader
+                icon={Briefcase}
+                title="Offres ouvertes"
+                count={offers.length}
+                linkTo="/offers"
+                accentColor="text-t-fg3"
+                badgeColor="bg-t-bg4"
+              />
+              <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent divide-y divide-t-stroke3">
+                {offers.slice(0, 4).map((offer) => (
                   <Link
-                    key={c.id}
-                    to={`/candidates/${c.id}`}
-                    className={`flex items-center gap-3 px-3 py-2.5 hover:bg-t-bg-subtle-hover transition-colors ${
-                      i < recentCandidates.length - 1 ? 'border-b border-t-stroke3' : ''
-                    }`}
+                    key={offer.id}
+                    to="/offers"
+                    className="flex items-center justify-between px-4 py-3 hover:bg-t-bg1-hover transition-colors"
                   >
-                    <div className="w-8 h-8 rounded-full bg-t-brand-160 flex items-center justify-center text-caption2 font-semibold text-t-brand-80 shrink-0">
-                      {c.first_name[0]}{c.last_name[0]}
+                    <div>
+                      <p className="text-body1 text-t-fg1 font-medium">{offer.title}</p>
+                      <p className="text-caption2 text-t-fg3">{offer.candidates_count ?? 0} candidature{(offer.candidates_count ?? 0) > 1 ? 's' : ''}</p>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-body1 text-t-fg1 truncate">{c.first_name} {c.last_name}</p>
-                      <TriBadge category={c.tri_category} />
-                    </div>
-                    <span className="text-caption2 text-t-fg3 shrink-0">{timeAgo(c.created_at)}</span>
+                    <ChevronRight className="w-4 h-4 text-t-fg3 shrink-0" />
                   </Link>
                 ))}
               </div>
             </div>
+          )}
 
-            {/* Column 2: Activity feed */}
-            <div className="flex flex-col">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-caption1 font-semibold text-t-fg2 uppercase tracking-wider">Fil d'activite</h2>
-              </div>
-              <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent overflow-hidden flex-1">
-                {activityFeed.map((item, i) => (
-                  <div
-                    key={i}
-                    className={`flex items-start gap-3 px-3 py-2.5 ${
-                      i < activityFeed.length - 1 ? 'border-b border-t-stroke3' : ''
-                    }`}
-                  >
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-                      item.accent === 'text-t-success' ? 'bg-t-success-bg' :
-                      item.accent === 'text-t-danger' ? 'bg-t-danger-bg' :
-                      item.accent === 'text-t-brand-80' ? 'bg-t-bg-brand-selected' : 'bg-t-bg4'
-                    }`}>
-                      <item.icon className={`w-3 h-3 ${item.accent}`} strokeWidth={2} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-caption1 text-t-fg1 leading-snug">{item.text}</p>
-                      <span className="text-caption2 text-t-fg3">{item.time}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-caption1 font-semibold text-t-fg2 uppercase tracking-wider">Offres actives</h2>
-              <Link to="/offers" className="text-caption1 text-t-fg-brand hover:underline inline-flex items-center gap-0.5">
-                Tout voir <ChevronRight className="w-3 h-3" />
-              </Link>
-            </div>
-            <div className="bg-t-bg1 border border-t-stroke3 rounded-fluent divide-y divide-t-stroke3">
-              {activeOffers.slice(0, 5).map((offer) => (
-                <Link key={offer.id} to="/offers" className="flex items-center justify-between px-4 py-3 hover:bg-t-bg1-hover transition-colors">
-                  <div>
-                    <p className="text-body1 text-t-fg1 font-medium">{offer.title}</p>
-                    <p className="text-caption2 text-t-fg3">{offer.candidates_count} candidats</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-t-fg3" />
-                </Link>
-              ))}
-              {activeOffers.length === 0 && (
-                <div className="px-4 py-6 text-caption1 text-t-fg3">Aucune offre active.</div>
-              )}
-            </div>
-          </div>
         </div>
       </div>
     </>
   );
 }
+
+export { timeAgo };
