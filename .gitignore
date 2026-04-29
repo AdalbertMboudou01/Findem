@@ -39,4 +39,5 @@ Thumbs.db
 
 # Ne pas versionner la documentation et le TODO
 /docs/
-TODO.md
+ROADMAP.md
+UX_IMPROVEMENTS.md

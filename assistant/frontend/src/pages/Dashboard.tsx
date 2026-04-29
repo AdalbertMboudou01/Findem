@@ -7,11 +7,13 @@ import {
   Users,
   Bell,
   CheckCircle2,
+  Sparkles,
 } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import { useEffect, useState } from 'react';
 import type { Offer, Candidate, InAppNotification } from '../types';
 import { loadRecruitmentData, loadOverdueTasks, loadTeamView, loadMyInAppNotifications, markInAppNotificationAsRead, markAllInAppNotificationsAsRead } from '../lib/domainApi';
+import { useAuth } from '../lib/AuthContext';
 
 type MappedTask = Awaited<ReturnType<typeof loadOverdueTasks>>[number];
 type AvisEntry = { application_id: string; candidate_name: string; status: string; created_at: string; };
@@ -100,7 +102,8 @@ const PRIORITY_STYLES: Record<string, { label: string; className: string }> = {
   LOW:    { label: 'Faible',  className: 'bg-t-bg4 text-t-fg3' },
   MEDIUM: { label: 'Moyen',   className: 'bg-t-warning-bg text-t-warning' },
   HIGH:   { label: 'Haute',   className: 'bg-t-danger-bg text-t-danger' },
-  URGENT: { label: 'Urgent',  className: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 font-semibold' },
+  // URGENT : on réutilise les vars danger avec font-semibold — pas de dark: hardcodé
+  URGENT: { label: 'Urgent',  className: 'bg-t-danger-bg text-t-danger font-semibold ring-1 ring-inset ring-t-danger' },
 };
 
 function PriorityBadge({ priority }: { priority: string }) {
@@ -115,6 +118,7 @@ function PriorityBadge({ priority }: { priority: string }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [offers, setOffers] = useState<Offer[]>([]);
   const [candidatesCount, setCandidatesCount] = useState(0);
   const [overdueTasks, setOverdueTasks] = useState<MappedTask[]>([]);
@@ -220,6 +224,30 @@ export default function Dashboard() {
 
       <div className="flex-1 overflow-y-auto bg-t-bg3">
         <div className="px-4 md:px-6 py-4 md:py-5 space-y-5">
+
+          {/* ── Bienvenue personnalisé ── */}
+          {user?.full_name && (
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-t-brand-80 shrink-0" />
+              <p className="text-body1 text-t-fg2">
+                Bonjour <span className="font-semibold text-t-fg1">{user.full_name.split(' ')[0]}</span> — voici votre espace de travail.
+              </p>
+            </div>
+          )}
+
+          {/* ── Bannière premier démarrage ── */}
+          {!loadingOffers && offers.length === 0 && (
+            <div className="bg-t-bg-brand-selected border border-t-stroke3 rounded-fluent px-4 py-3 flex items-start gap-3">
+              <Briefcase className="w-4 h-4 text-t-brand-80 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-body1 font-semibold text-t-fg1">Commencez par créer une offre</p>
+                <p className="text-caption2 text-t-fg3 mt-0.5">Ajoutez un poste ouvert pour commencer à recevoir et évaluer des candidatures.</p>
+                <Link to="/offers" className="inline-block mt-2 text-caption1 font-semibold text-t-brand-80 hover:underline">
+                  Créer ma première offre →
+                </Link>
+              </div>
+            </div>
+          )}
 
           {/* ── Barre d'actions rapides ── */}
           <div className="flex flex-wrap items-center gap-2">
@@ -433,7 +461,7 @@ export default function Dashboard() {
                           <div
                             key={notif.id}
                             className={`flex items-start gap-3 px-3 py-2.5 transition-colors ${
-                              notif.read ? 'opacity-60' : 'bg-t-bg-brand-selected/30'
+                              notif.read ? 'opacity-60' : 'bg-t-bg-brand-selected'
                             }`}
                           >
                             {/* Indicateur non-lu */}
