@@ -453,6 +453,7 @@ export default function Entreprise() {
                         className="h-9 px-3 text-body1 bg-t-bg1 border border-t-stroke2 rounded-fluent outline-none focus:border-t-stroke-brand transition-colors">
                         <option value="RECRUITER">Recruteur</option>
                         <option value="ADMIN">Admin</option>
+                        {/* TODO: activer HIRING_MANAGER et OBSERVER quand les permissions backend sont implémentées */}
                       </select>
                     </div>
                     <select value={inviteDeptId} onChange={(e) => setInviteDeptId(e.target.value)}

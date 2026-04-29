@@ -119,9 +119,9 @@
 **Objectif** : Ne pas afficher HIRING_MANAGER / OBSERVER dans l'UI tant que les permissions backend ne sont pas actives.
 
 **Actions** :
-- [ ] Repérer dans `Entreprise.tsx` (gestion membres) les endroits où le rôle est sélectionnable
-- [ ] Remplacer par : `ADMIN` et `RECRUTEUR` uniquement (dropdown ou radio)
-- [ ] Ajouter un commentaire dans le code : `// TODO: activer quand les permissions sont implémentées`
+- [x] Repérer dans `Entreprise.tsx` (gestion membres) les endroits où le rôle est sélectionnable
+- [x] Remplacer par : `ADMIN` et `RECRUTEUR` uniquement (dropdown ou radio)
+- [x] Ajouter un commentaire dans le code : `// TODO: activer quand les permissions sont implémentées`
 
 **Critère de succès** : Un admin ne peut pas assigner un rôle dont les permissions n'existent pas.
 
