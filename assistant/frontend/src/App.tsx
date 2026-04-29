@@ -17,6 +17,7 @@ import Entreprise from './pages/Entreprise';
 import CandidateChatbot from './pages/CandidateChatbot';
 import OfferSettings from './pages/OfferSettings';
 import OfferPriority from './pages/OfferPriority';
+import TeamChat from './pages/TeamChat';
 import CompanyOnboarding from './pages/CompanyOnboarding';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -73,6 +74,7 @@ function AppRoutes() {
         <Route path="/entreprise/setup" element={<CompanyOnboarding />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/team-views" element={<TeamViews />} />
+        <Route path="/team-chat" element={<TeamChat />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/landing" replace />} />

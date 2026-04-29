@@ -33,4 +33,10 @@ public interface InternalChatRepository extends JpaRepository<InternalChat, UUID
     
     @Query("SELECT COUNT(c) FROM InternalChat c WHERE c.recipient.recruiterId = :recruiterId AND c.isRead = false")
     Long countUnreadChatsByRecipient(@Param("recruiterId") UUID recruiterId);
+
+    @Query("SELECT c FROM InternalChat c WHERE c.company.companyId = :companyId AND c.channelType = 'GENERAL' ORDER BY c.createdAt ASC")
+    List<InternalChat> findGeneralMessages(@Param("companyId") UUID companyId);
+
+    @Query("SELECT c FROM InternalChat c WHERE c.departmentId = :departmentId AND c.channelType = 'DEPARTMENT' ORDER BY c.createdAt ASC")
+    List<InternalChat> findDepartmentMessages(@Param("departmentId") UUID departmentId);
 }

@@ -26,8 +26,14 @@ public class InternalChat {
     private Recruiter sender;
     
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "recipient_id", nullable = false)
+    @JoinColumn(name = "recipient_id", nullable = true)
     private Recruiter recipient;
+
+    @Column(name = "department_id")
+    private UUID departmentId;
+
+    @Column(name = "channel_type", nullable = false)
+    private String channelType = "GENERAL";
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id", nullable = false)
@@ -155,6 +161,22 @@ public class InternalChat {
         this.isRead = isRead;
     }
     
+    public UUID getDepartmentId() {
+        return departmentId;
+    }
+
+    public void setDepartmentId(UUID departmentId) {
+        this.departmentId = departmentId;
+    }
+
+    public String getChannelType() {
+        return channelType;
+    }
+
+    public void setChannelType(String channelType) {
+        this.channelType = channelType;
+    }
+
     public UUID getReplyToId() {
         return replyToId;
     }

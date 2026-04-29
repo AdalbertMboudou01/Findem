@@ -12,6 +12,7 @@ import {
   Menu,
   X,
   LayoutList,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../../lib/AuthContext';
 import { loadMyInAppNotifications } from '../../lib/domainApi';
@@ -33,6 +34,7 @@ const navItems: NavItem[] = [
   { to: '/candidates', icon: Users, label: 'Candidats', matchPrefix: '/candidates', section: 'pilotage' },
   { to: '/team-views', icon: LayoutList, label: 'Vues équipe', section: 'pilotage' },
   { to: '/chatbot', icon: Bot, label: 'Chatbot', section: 'execution' },
+  { to: '/team-chat', icon: MessageSquare, label: 'Canaux', section: 'execution' },
   { to: '/entreprise', icon: Building2, label: 'Entreprise', section: 'administration' },
   { to: '/settings', icon: Settings, label: 'Paramètres', section: 'administration' },
 ];
