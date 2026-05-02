@@ -30,3 +30,22 @@ This is broader than the AI persona work. Before a production deployment with
 
 - normalize the original migrations before first deployment; or
 - add corrective migrations for an already deployed database.
+
+## Validation Result
+
+Validation was tested against the current PostgreSQL Docker database after Hibernate had created/updated the schema:
+
+```bash
+docker run --rm --network assistant_default --env-file .env \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/assistant_db \
+  -e SPRING_JPA_HIBERNATE_DDL_AUTO=validate \
+  -p 8199:8000 assistant-backend:latest
+```
+
+Result: Spring Boot started successfully with `ddl-auto=validate`.
+
+This confirms that the current database schema and Java entities are aligned. It does not prove that the legacy SQL files alone can rebuild a fresh database, because the project does not currently run them automatically through Flyway or Liquibase.
+
+## Current Recommendation
+
+Use Hibernate `update` for local first boot while the SQL migration set remains legacy/reference-only. Use `validate` after the database has been initialized, especially before demos and deployment checks.
