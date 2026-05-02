@@ -3,9 +3,13 @@ package com.memoire.assistant.service;
 import com.memoire.assistant.model.Candidate;
 import com.memoire.assistant.model.Application;
 import com.memoire.assistant.model.ApplicationStatus;
+import com.memoire.assistant.model.Job;
 import com.memoire.assistant.dto.CandidateSummaryDTO;
 import com.memoire.assistant.repository.CandidateRepository;
 import com.memoire.assistant.repository.ApplicationRepository;
+import com.memoire.assistant.security.TenantContext;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,6 +29,8 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 public class CandidateServiceTest {
     
+    private UUID testCompanyId = UUID.randomUUID();
+    
     @Mock
     private CandidateRepository candidateRepository;
     
@@ -33,6 +39,18 @@ public class CandidateServiceTest {
     
     @InjectMocks
     private CandidateService candidateService;
+    
+    @BeforeEach
+    void setUp() {
+        // Configurer le TenantContext pour les tests
+        TenantContext.set(UUID.randomUUID(), UUID.randomUUID(), testCompanyId, "RECRUITER");
+    }
+    
+    @AfterEach
+    void tearDown() {
+        // Nettoyer le TenantContext après chaque test
+        TenantContext.clear();
+    }
     
     @Test
     @DisplayName("Devrait récupérer tous les candidats")
@@ -43,14 +61,14 @@ public class CandidateServiceTest {
             createMockCandidate("Jane", "Smith", "jane@example.com")
         );
         
-        when(candidateRepository.findAll()).thenReturn(expectedCandidates);
+        when(candidateRepository.findAllByCompanyId(testCompanyId)).thenReturn(expectedCandidates);
         
         // When
         List<Candidate> result = candidateService.getAllCandidates();
         
         // Then
         assertEquals(expectedCandidates, result);
-        verify(candidateRepository).findAll();
+        verify(candidateRepository).findAllByCompanyId(testCompanyId);
     }
     
     @Test
@@ -60,7 +78,7 @@ public class CandidateServiceTest {
         UUID candidateId = UUID.randomUUID();
         Candidate expectedCandidate = createMockCandidate("John", "Doe", "john@example.com");
         
-        when(candidateRepository.findById(candidateId)).thenReturn(Optional.of(expectedCandidate));
+        when(candidateRepository.findByCandidateIdAndCompanyId(candidateId, testCompanyId)).thenReturn(Optional.of(expectedCandidate));
         
         // When
         Optional<Candidate> result = candidateService.getCandidateById(candidateId);
@@ -68,7 +86,7 @@ public class CandidateServiceTest {
         // Then
         assertTrue(result.isPresent());
         assertEquals(expectedCandidate, result.get());
-        verify(candidateRepository).findById(candidateId);
+        verify(candidateRepository).findByCandidateIdAndCompanyId(candidateId, testCompanyId);
     }
     
     @Test
@@ -77,14 +95,14 @@ public class CandidateServiceTest {
         // Given
         UUID candidateId = UUID.randomUUID();
         
-        when(candidateRepository.findById(candidateId)).thenReturn(Optional.empty());
+        when(candidateRepository.findByCandidateIdAndCompanyId(candidateId, testCompanyId)).thenReturn(Optional.empty());
         
         // When
         Optional<Candidate> result = candidateService.getCandidateById(candidateId);
         
         // Then
         assertFalse(result.isPresent());
-        verify(candidateRepository).findById(candidateId);
+        verify(candidateRepository).findByCandidateIdAndCompanyId(candidateId, testCompanyId);
     }
     
     @Test
@@ -110,6 +128,9 @@ public class CandidateServiceTest {
     void testDeleteCandidate() {
         // Given
         UUID candidateId = UUID.randomUUID();
+        Candidate candidate = createMockCandidate("John", "Doe", "john@example.com");
+        
+        when(candidateRepository.findByCandidateIdAndCompanyId(candidateId, testCompanyId)).thenReturn(Optional.of(candidate));
         
         // When
         candidateService.deleteCandidate(candidateId);
@@ -127,14 +148,14 @@ public class CandidateServiceTest {
             createMockCandidate("Jane", "Smith", "jane@example.com")
         );
         
-        when(candidateRepository.findByInPoolTrue()).thenReturn(expectedPoolCandidates);
+        when(candidateRepository.findInPoolByCompanyId(testCompanyId)).thenReturn(expectedPoolCandidates);
         
         // When
         List<Candidate> result = candidateService.getPoolCandidates();
         
         // Then
         assertEquals(expectedPoolCandidates, result);
-        verify(candidateRepository).findByInPoolTrue();
+        verify(candidateRepository).findInPoolByCompanyId(testCompanyId);
     }
     
     @Test
@@ -148,9 +169,14 @@ public class CandidateServiceTest {
         
         Application application = createMockApplication("ENTRETIEN", candidate);
         Application app2 = createMockApplication("REJETE", candidate);
+        
+        // S'assurer que ENTRETIEN est plus récent que REJETE pour le tri
+        application.setCreatedAt(new java.util.Date(System.currentTimeMillis() - 1000)); // Plus récent
+        app2.setCreatedAt(new java.util.Date(System.currentTimeMillis() - 5000)); // Plus ancien
+        
         List<Application> applications = Arrays.asList(application, app2);
         
-        when(candidateRepository.findById(candidateId)).thenReturn(Optional.of(candidate));
+        when(candidateRepository.findByCandidateIdAndCompanyId(candidateId, testCompanyId)).thenReturn(Optional.of(candidate));
         when(applicationRepository.findByCandidate_CandidateId(candidateId)).thenReturn(applications);
         
         // When
@@ -166,7 +192,7 @@ public class CandidateServiceTest {
         assertTrue(summary.getInPool());
         assertEquals(2, summary.getApplicationsCount());
         assertEquals("ENTRETIEN", summary.getLastStatus());
-        verify(candidateRepository).findById(candidateId);
+        verify(candidateRepository).findByCandidateIdAndCompanyId(candidateId, testCompanyId);
         verify(applicationRepository).findByCandidate_CandidateId(candidateId);
     }
     
@@ -176,14 +202,14 @@ public class CandidateServiceTest {
         // Given
         UUID candidateId = UUID.randomUUID();
         
-        when(candidateRepository.findById(candidateId)).thenReturn(Optional.empty());
+        when(candidateRepository.findByCandidateIdAndCompanyId(candidateId, testCompanyId)).thenReturn(Optional.empty());
         
         // When
         Optional<CandidateSummaryDTO> result = candidateService.getCandidateSummary(candidateId);
         
         // Then
         assertFalse(result.isPresent());
-        verify(candidateRepository).findById(candidateId);
+        verify(candidateRepository).findByCandidateIdAndCompanyId(candidateId, testCompanyId);
     }
     
     @Test
@@ -194,7 +220,7 @@ public class CandidateServiceTest {
         Candidate candidate = createMockCandidate("John", "Doe", "john@example.com");
         candidate.setCandidateId(candidateId);
         
-        when(candidateRepository.findById(candidateId)).thenReturn(Optional.of(candidate));
+        when(candidateRepository.findByCandidateIdAndCompanyId(candidateId, testCompanyId)).thenReturn(Optional.of(candidate));
         when(applicationRepository.findByCandidate_CandidateId(candidateId)).thenReturn(Arrays.asList());
         
         // When
@@ -209,7 +235,7 @@ public class CandidateServiceTest {
         assertEquals("john@example.com", summary.getEmail());
         assertEquals(0, summary.getApplicationsCount());
         assertNull(summary.getLastStatus());
-        verify(candidateRepository).findById(candidateId);
+        verify(candidateRepository).findByCandidateIdAndCompanyId(candidateId, testCompanyId);
         verify(applicationRepository).findByCandidate_CandidateId(candidateId);
     }
     
@@ -230,6 +256,19 @@ public class CandidateServiceTest {
         status.setLabel(statusLabel);
         application.setStatus(status);
         application.setCreatedAt(new java.util.Date());
+        application.setCandidate(candidate);
+        
+        // Ajouter Job avec Company pour le filtrage par companyId
+        Job job = new Job();
+        job.setJobId(UUID.randomUUID());
+        job.setTitle("Test Job");
+        
+        com.memoire.assistant.model.Company company = new com.memoire.assistant.model.Company();
+        company.setCompanyId(testCompanyId);
+        company.setName("Test Company");
+        job.setCompany(company);
+        
+        application.setJob(job);
         return application;
     }
 }

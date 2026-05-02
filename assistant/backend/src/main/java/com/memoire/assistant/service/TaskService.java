@@ -2,6 +2,7 @@ package com.memoire.assistant.service;
 
 import com.memoire.assistant.dto.TaskCreateRequest;
 import com.memoire.assistant.dto.TaskDTO;
+import com.memoire.assistant.model.AIPersona;
 import com.memoire.assistant.model.ApplicationActivity.EventType;
 import com.memoire.assistant.model.InternalNotification;
 import com.memoire.assistant.model.Task;
@@ -32,6 +33,9 @@ public class TaskService {
     @Autowired
     private InternalNotificationService notificationService;
 
+    @Autowired
+    private AITaskExecutionService aiTaskExecutionService;
+
     public List<TaskDTO> getTasksForApplication(UUID applicationId) {
         UUID companyId = TenantContext.getCompanyId();
         return taskRepository
@@ -56,6 +60,7 @@ public class TaskService {
         task.setDescription(req.getDescription());
         task.setAssigneeId(req.getAssigneeId());
         task.setDueDate(req.getDueDate());
+        task.setTaskType(req.getTaskType());
         task.setStatus(Task.Status.TODO);
         if (req.getPriority() != null) {
             task.setPriority(Task.Priority.valueOf(req.getPriority()));
@@ -70,8 +75,9 @@ public class TaskService {
                 "assigneeId", saved.getAssigneeId() != null ? saved.getAssigneeId().toString() : ""
         ));
 
-        // Notification TASK_ASSIGNED si un assigné est défini
-        if (saved.getAssigneeId() != null) {
+        if (AIPersona.FINDEM_WORKER_ID.equals(saved.getAssigneeId())) {
+            aiTaskExecutionService.execute(saved.getId(), applicationId, companyId, saved.getTaskType());
+        } else if (saved.getAssigneeId() != null) {
             notificationService.notify(
                     saved.getAssigneeId(), companyId,
                     InternalNotification.Type.TASK_ASSIGNED,
@@ -147,6 +153,8 @@ public class TaskService {
         dto.setOverdue(t.getDueDate() != null
                 && t.getStatus() != Task.Status.DONE
                 && t.getDueDate().isBefore(LocalDate.now()));
+        dto.setTaskType(t.getTaskType());
+        dto.setAiResult(t.getAiResult());
         return dto;
     }
 }

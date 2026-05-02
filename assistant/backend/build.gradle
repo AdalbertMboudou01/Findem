@@ -48,6 +48,8 @@ dependencies {
     implementation 'com.sun.mail:jakarta.mail:2.0.1'
     // Fix Hibernate lazy-loading proxy serialization (ByteBuddyInterceptor)
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-hibernate6'
+    // Fix LocalDateTime serialization
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 }
 
 test {

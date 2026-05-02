@@ -36,6 +36,9 @@ class ChatAnswerServiceTest {
     @Mock
     private SemanticExtractionService semanticExtractionService;
 
+    @Mock
+    private AIFindAssistService aiFindAssistService;
+
     @InjectMocks
     private ChatAnswerService chatAnswerService;
 

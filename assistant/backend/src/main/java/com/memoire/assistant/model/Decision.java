@@ -31,6 +31,9 @@ public class Decision {
     @Column(name = "decided_at", nullable = false)
     private LocalDateTime decidedAt = LocalDateTime.now();
 
+    @Column(name = "ai_review", columnDefinition = "TEXT")
+    private String aiReview;
+
     // Getters & Setters
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -52,4 +55,7 @@ public class Decision {
 
     public LocalDateTime getDecidedAt() { return decidedAt; }
     public void setDecidedAt(LocalDateTime decidedAt) { this.decidedAt = decidedAt; }
+
+    public String getAiReview() { return aiReview; }
+    public void setAiReview(String aiReview) { this.aiReview = aiReview; }
 }

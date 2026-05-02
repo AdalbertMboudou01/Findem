@@ -37,6 +37,9 @@ public class CommentService {
     @Autowired
     private InternalNotificationService notificationService;
 
+    @Autowired
+    private AICommentInsightService aiCommentInsightService;
+
     public List<Comment> getCommentsForApplication(UUID applicationId) {
         UUID companyId = TenantContext.getCompanyId();
         return commentRepository
@@ -93,6 +96,10 @@ public class CommentService {
                 body.length() > 120 ? body.substring(0, 120) + "…" : body,
                 "candidate", applicationIdFinal
         ));
+
+        if (saved.getAuthorType() != Comment.AuthorType.AI_SYSTEM) {
+            aiCommentInsightService.analyzeAndInsert(applicationId, companyId, body);
+        }
 
         return saved;
     }

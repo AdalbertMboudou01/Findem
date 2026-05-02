@@ -14,6 +14,7 @@ import com.memoire.assistant.model.User;
 import com.memoire.assistant.repository.UserRepository;
 import com.memoire.assistant.security.JwtUtil;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Disabled;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -33,8 +34,14 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(AuthController.class)
-@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc(addFilters = false)
+@WebMvcTest(controllers = AuthController.class, 
+    excludeAutoConfiguration = {
+        org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class,
+        org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration.class,
+        org.springframework.boot.autoconfigure.security.servlet.SecurityFilterAutoConfiguration.class,
+        org.springframework.boot.autoconfigure.security.oauth2.client.servlet.OAuth2ClientAutoConfiguration.class,
+        org.springframework.boot.autoconfigure.security.oauth2.resource.servlet.OAuth2ResourceServerAutoConfiguration.class
+    })
 class AuthControllerTest {
     @TestConfiguration
     static class MockMvcConfig {
@@ -64,6 +71,12 @@ class AuthControllerTest {
     private PasswordEncoder passwordEncoder;
     @MockBean
     private com.memoire.assistant.security.CustomUserDetailsService customUserDetailsService;
+    @MockBean
+    private com.memoire.assistant.repository.RecruiterRepository recruiterRepository;
+    @MockBean
+    private com.memoire.assistant.service.AuthOnboardingService authOnboardingService;
+    @MockBean
+    private com.memoire.assistant.service.PasswordResetService passwordResetService;
 
     @Test
     void login_shouldReturnToken_whenCredentialsValid() throws Exception {
@@ -77,7 +90,8 @@ class AuthControllerTest {
         Authentication auth = Mockito.mock(Authentication.class);
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(auth);
         when(userRepository.findByEmail("test@mail.com")).thenReturn(Optional.of(user));
-        when(jwtUtil.generateToken(user.getEmail(), user.getRole())).thenReturn("token123");
+        when(recruiterRepository.findByAuthUserId(user.getId())).thenReturn(Optional.empty());
+        when(jwtUtil.generateToken(user.getEmail(), user.getRole(), user.getId(), null, null)).thenReturn("token123");
         mockMvc.perform(post("/api/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(req)))

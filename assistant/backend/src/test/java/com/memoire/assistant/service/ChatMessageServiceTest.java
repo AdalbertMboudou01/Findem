@@ -80,6 +80,9 @@ public class ChatMessageServiceTest {
         ChatAnswerDTO answerDTO = new ChatAnswerDTO();
         answerDTO.setApplicationId(applicationId);
         answerDTO.setCandidateId(candidateId);
+        answerDTO.setQuestionKey("motivation");
+        answerDTO.setQuestionText("Pourquoi cette offre vous intéresse ?");
+        answerDTO.setAnswer("Je suis très motivé");
         
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.empty());
         
@@ -103,6 +106,9 @@ public class ChatMessageServiceTest {
         ChatAnswerDTO answerDTO = new ChatAnswerDTO();
         answerDTO.setApplicationId(applicationId);
         answerDTO.setCandidateId(candidateId);
+        answerDTO.setQuestionKey("motivation");
+        answerDTO.setQuestionText("Pourquoi cette offre vous intéresse ?");
+        answerDTO.setAnswer("Je suis très motivé");
         
         Application application = createMockApplication(applicationId);
         when(applicationRepository.findById(applicationId)).thenReturn(Optional.of(application));

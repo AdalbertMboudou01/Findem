@@ -6,6 +6,7 @@ import com.memoire.assistant.model.ChatAnswer;
 import com.memoire.assistant.model.Job;
 import com.memoire.assistant.repository.ChatAnswerRepository;
 import com.memoire.assistant.repository.ApplicationRepository;
+import com.memoire.assistant.repository.CandidateRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,6 +31,15 @@ class BasicServiceTest {
 
     @Mock
     private ApplicationRepository applicationRepository;
+
+    @Mock
+    private CandidateRepository candidateRepository;
+
+    @Mock
+    private SemanticExtractionService semanticExtractionService;
+
+    @Mock
+    private AIFindAssistService aiFindAssistService;
 
     @InjectMocks
     private ChatAnswerService chatAnswerService;

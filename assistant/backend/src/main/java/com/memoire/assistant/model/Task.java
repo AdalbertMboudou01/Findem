@@ -43,6 +43,12 @@ public class Task {
     @Column(nullable = false, columnDefinition = "task_priority")
     private Priority priority = Priority.MEDIUM;
 
+    @Column(name = "task_type")
+    private String taskType;
+
+    @Column(name = "ai_result", columnDefinition = "TEXT")
+    private String aiResult;
+
     @Column(name = "created_by", nullable = false)
     private UUID createdBy;
 
@@ -84,6 +90,12 @@ public class Task {
 
     public Priority getPriority() { return priority; }
     public void setPriority(Priority priority) { this.priority = priority; }
+
+    public String getTaskType() { return taskType; }
+    public void setTaskType(String taskType) { this.taskType = taskType; }
+
+    public String getAiResult() { return aiResult; }
+    public void setAiResult(String aiResult) { this.aiResult = aiResult; }
 
     public UUID getCreatedBy() { return createdBy; }
     public void setCreatedBy(UUID createdBy) { this.createdBy = createdBy; }

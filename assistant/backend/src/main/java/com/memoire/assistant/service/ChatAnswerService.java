@@ -1,7 +1,6 @@
 package com.memoire.assistant.service;
 
 import com.memoire.assistant.dto.ChatAnswerAnalysisDTO;
-import com.memoire.assistant.dto.GithubAnalysisDTO;
 import com.memoire.assistant.dto.AnalysisFactDTO;
 import com.memoire.assistant.model.Application;
 import com.memoire.assistant.model.Candidate;
@@ -15,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.text.Normalizer;
@@ -40,10 +40,11 @@ public class ChatAnswerService {
     private CandidateRepository candidateRepository;
 
     @Autowired
-    private GitHubAnalysisService gitHubAnalysisService;
-
-    @Autowired
     private SemanticExtractionService semanticExtractionService;
+
+    @Lazy
+    @Autowired
+    private AIFindAssistService aiFindemAssistService;
 
     @Value("${app.semantic-extractor.require-llm:false}")
     private boolean requireLlmExtraction;
@@ -92,6 +93,9 @@ public class ChatAnswerService {
             log.warn("Could not save semantic cache for {}: {}", applicationId, e.getMessage());
         }
 
+        // FindemAssist : poster l'analyse initiale dans le fil (une seule fois)
+        aiFindemAssistService.postAnalysisIfNeeded(applicationId, result);
+
         return result;
     }
 
@@ -138,7 +142,6 @@ public class ChatAnswerService {
 
         analyzeMotivation(answers, analysis);
         analyzeTechnicalProfile(answers, analysis);
-        enrichWithGitHubAndPortfolio(application, analysis);
         analyzeAvailability(answers, analysis);
         analyzeLocation(answers, analysis, application);
         if (includeLlm) {
@@ -210,114 +213,8 @@ public class ChatAnswerService {
         analysis.setMotivationKeywords(detectedMarkers.stream().distinct().collect(Collectors.toList()));
     }
 
-    // Cache TTL: 7 jours
-    private static final long GITHUB_CACHE_TTL_MS = 7L * 24 * 60 * 60 * 1000;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    private void enrichWithGitHubAndPortfolio(Application application, ChatAnswerAnalysisDTO analysis) {
-        if (application == null || application.getCandidate() == null) {
-            return;
-        }
-
-        Set<String> mergedSkills = new LinkedHashSet<>(
-            analysis.getTechnicalSkills() == null ? Collections.emptyList() : analysis.getTechnicalSkills()
-        );
-        Set<String> mergedProjects = new LinkedHashSet<>(
-            analysis.getMentionedProjects() == null ? Collections.emptyList() : analysis.getMentionedProjects()
-        );
-
-        boolean hasExternalProfile = false;
-        List<String> githubSummaryParts = new ArrayList<>();
-
-        String githubUrl = application.getCandidate().getGithubUrl();
-        if (githubUrl != null && !githubUrl.trim().isEmpty()) {
-            hasExternalProfile = true;
-            GithubAnalysisDTO githubAnalysis = resolveGithubAnalysis(application.getCandidate(), githubUrl);
-            if (Boolean.TRUE.equals(githubAnalysis.getSuccess())) {
-                if (githubAnalysis.getLanguages() != null) {
-                    mergedSkills.addAll(githubAnalysis.getLanguages());
-                }
-                if (githubAnalysis.getTechnologies() != null) {
-                    mergedSkills.addAll(githubAnalysis.getTechnologies());
-                }
-                if (githubAnalysis.getProjectHighlights() != null && !githubAnalysis.getProjectHighlights().isEmpty()) {
-                    githubAnalysis.getProjectHighlights().stream()
-                        .limit(3)
-                        .forEach(highlight -> mergedProjects.add("GitHub: " + highlight));
-                    analysis.setHasProjectDetails(true);
-                }
-                if (githubAnalysis.getPublicRepositories() != null && githubAnalysis.getPublicRepositories() > 0) {
-                    analysis.setHasProjectDetails(true);
-                }
-
-                String githubPart = "GitHub: " +
-                    (githubAnalysis.getPublicRepositories() == null ? 0 : githubAnalysis.getPublicRepositories()) +
-                    " depots publics";
-                if (githubAnalysis.getTotalStars() != null) {
-                    githubPart += ", " + githubAnalysis.getTotalStars() + " etoiles";
-                }
-                if (githubAnalysis.getActivityScore() != null) {
-                    githubPart += ", activite " + githubAnalysis.getActivityScore() + "/100";
-                }
-                githubSummaryParts.add(githubPart);
-            } else {
-                githubSummaryParts.add("GitHub: analyse indisponible");
-            }
-        }
-
-        String portfolioUrl = application.getCandidate().getPortfolioUrl();
-        if (portfolioUrl != null && !portfolioUrl.trim().isEmpty()) {
-            hasExternalProfile = true;
-            GithubAnalysisDTO portfolioAnalysis = gitHubAnalysisService.analyzePortfolio(portfolioUrl);
-            if (Boolean.TRUE.equals(portfolioAnalysis.getSuccess())) {
-                githubSummaryParts.add("Portfolio: accessible");
-                analysis.setHasProjectDetails(true);
-            } else {
-                githubSummaryParts.add("Portfolio: non accessible");
-            }
-        }
-
-        if (hasExternalProfile) {
-            analysis.setHasGitHubOrPortfolio(true);
-        }
-
-        if (!mergedSkills.isEmpty()) {
-            analysis.setTechnicalSkills(new ArrayList<>(mergedSkills));
-        }
-        if (!mergedProjects.isEmpty()) {
-            analysis.setMentionedProjects(new ArrayList<>(mergedProjects));
-        }
-        if (!githubSummaryParts.isEmpty()) {
-            analysis.setGithubSummary(String.join(" | ", githubSummaryParts));
-        }
-    }
-
-    /** Retourne le résultat GitHub depuis le cache BDD si valide, sinon appelle l'API et met en cache. */
-    @SuppressWarnings("unchecked")
-    private GithubAnalysisDTO resolveGithubAnalysis(com.memoire.assistant.model.Candidate candidate, String githubUrl) {
-        // Vérifier cache
-        if (candidate.getGithubCache() != null && candidate.getGithubCacheAt() != null) {
-            long age = System.currentTimeMillis() - candidate.getGithubCacheAt().getTime();
-            if (age < GITHUB_CACHE_TTL_MS) {
-                try {
-                    return OBJECT_MAPPER.convertValue(candidate.getGithubCache(), GithubAnalysisDTO.class);
-                } catch (Exception e) {
-                    log.warn("Impossible de désérialiser github_cache pour {}: {}", candidate.getCandidateId(), e.getMessage());
-                }
-            }
-        }
-        // Cache absent ou expiré → appel API
-        GithubAnalysisDTO result = gitHubAnalysisService.analyzeGitHubProfile(githubUrl);
-        try {
-            candidate.setGithubCache(OBJECT_MAPPER.convertValue(result, Map.class));
-            candidate.setGithubCacheAt(new java.util.Date());
-            candidateRepository.save(candidate);
-        } catch (Exception e) {
-            log.warn("Impossible de sauvegarder github_cache pour {}: {}", candidate.getCandidateId(), e.getMessage());
-        }
-        return result;
-    }
-    
     /**
      * Analyse du profil technique et des projets
      */

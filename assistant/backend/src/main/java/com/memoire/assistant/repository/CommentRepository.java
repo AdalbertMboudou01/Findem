@@ -14,4 +14,6 @@ public interface CommentRepository extends JpaRepository<Comment, UUID> {
 
     List<Comment> findByApplication_ApplicationIdAndCompanyIdAndVisibilityOrderByCreatedAtAsc(
             UUID applicationId, UUID companyId, Comment.Visibility visibility);
+
+    boolean existsByApplication_ApplicationIdAndAuthorId(UUID applicationId, UUID authorId);
 }

@@ -1,7 +1,6 @@
 package com.memoire.assistant.service;
 
 import com.memoire.assistant.dto.ApplicationSummaryDTO;
-import com.memoire.assistant.dto.GithubAnalysisDTO;
 import com.memoire.assistant.dto.ChatAnswerAnalysisDTO;
 import com.memoire.assistant.model.Application;
 import com.memoire.assistant.model.ApplicationSummary;
@@ -39,9 +38,6 @@ public class ApplicationSummaryService {
     
     @Autowired
     private JobRepository jobRepository;
-    
-    @Autowired
-    private GitHubAnalysisService gitHubAnalysisService;
     
     @Autowired
     private ChatAnswerService chatAnswerService;
@@ -109,9 +105,6 @@ public class ApplicationSummaryService {
         // Recommander une action
         summary.setRecommendedAction(recommendAction(summary));
         
-        // Enrichir avec l'analyse GitHub si disponible
-        enrichSummaryWithGitHubAnalysis(summary, candidate);
-        
         // Générer le texte de synthèse
         summary.setSummaryText(generateSummaryText(summary, candidate, job));
     }
@@ -122,77 +115,6 @@ public class ApplicationSummaryService {
             .map(ChatMessage::getAnswer)
             .findFirst()
             .orElse("");
-    }
-    
-    public void enrichSummaryWithGitHubAnalysis(ApplicationSummary summary, Candidate candidate) {
-        try {
-            // Analyser le profil GitHub si disponible
-            if (candidate.getGithubUrl() != null && !candidate.getGithubUrl().trim().isEmpty()) {
-                GithubAnalysisDTO githubAnalysis = gitHubAnalysisService.analyzeGitHubProfile(candidate.getGithubUrl());
-                
-                if (githubAnalysis.getSuccess()) {
-                    // Enrichir la synthèse avec les données GitHub
-                    enrichWithGitHubData(summary, githubAnalysis);
-                }
-            }
-            
-            // Analyser le portfolio si disponible
-            if (candidate.getPortfolioUrl() != null && !candidate.getPortfolioUrl().trim().isEmpty()) {
-                GithubAnalysisDTO portfolioAnalysis = gitHubAnalysisService.analyzePortfolio(candidate.getPortfolioUrl());
-                
-                if (portfolioAnalysis.getSuccess()) {
-                    // Enrichir la synthèse avec les données du portfolio
-                    enrichWithPortfolioData(summary, portfolioAnalysis);
-                }
-            }
-        } catch (Exception e) {
-            // L'analyse GitHub échoue ne doit pas bloquer la génération de synthèse
-            System.err.println("Erreur lors de l'enrichissement GitHub: " + e.getMessage());
-        }
-    }
-    
-    private void enrichWithGitHubData(ApplicationSummary summary, GithubAnalysisDTO githubAnalysis) {
-        // Améliorer le profil technique basé sur les données GitHub
-        String currentTechnical = summary.getTechnicalProfile();
-        if (githubAnalysis.getTechnologies() != null && !githubAnalysis.getTechnologies().isEmpty()) {
-            // Si le candidat a des projets GitHub avec des technologies pertinentes
-            if (githubAnalysis.getActivityScore() > 50) {
-                summary.setTechnicalProfile("STRONG");
-            } else if (githubAnalysis.getActivityScore() > 25) {
-                summary.setTechnicalProfile("MEDIUM");
-            }
-            
-            // Ajouter les technologies détectées
-            String enhancedKeySkills = summary.getKeySkills() + ", " + String.join(", ", githubAnalysis.getTechnologies());
-            summary.setKeySkills(enhancedKeySkills);
-        }
-        
-        // Améliorer les points positifs avec les projets GitHub
-        String currentPositive = summary.getPositivePoints();
-        if (githubAnalysis.getProjectHighlights() != null && !githubAnalysis.getProjectHighlights().isEmpty()) {
-            String enhancedPositive = currentPositive + "\n\nProjets GitHub remarquables:\n" + 
-                String.join("\n", githubAnalysis.getProjectHighlights());
-            summary.setPositivePoints(enhancedPositive);
-        }
-        
-        // Ajouter les statistiques GitHub dans les préoccupations si nécessaire
-        if (githubAnalysis.getPublicRepositories() != null && githubAnalysis.getPublicRepositories() < 3) {
-            String currentConcerns = summary.getConcerns();
-            String enhancedConcerns = currentConcerns + 
-                "\n\nNote: Profil GitHub avec peu de projets publics (" + 
-                githubAnalysis.getPublicRepositories() + " repositories)";
-            summary.setConcerns(enhancedConcerns);
-        }
-    }
-    
-    private void enrichWithPortfolioData(ApplicationSummary summary, GithubAnalysisDTO portfolioAnalysis) {
-        // Ajouter les informations du portfolio dans les points positifs
-        String currentPositive = summary.getPositivePoints();
-        if (portfolioAnalysis.getHasPortfolio() != null && portfolioAnalysis.getHasPortfolio()) {
-            String enhancedPositive = currentPositive + 
-                "\n\nPortfolio accessible: " + portfolioAnalysis.getPortfolioUrl();
-            summary.setPositivePoints(enhancedPositive);
-        }
     }
     
     public String analyzeMotivationLevel(String motivationAnswer) {

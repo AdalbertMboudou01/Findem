@@ -13,6 +13,8 @@ public class DecisionDTO {
     private UUID decidedBy;
     private LocalDateTime decidedAt;
 
+    private String aiReview;
+
     // Résumé des avis pour affichage
     private List<DecisionInputDTO> inputs;
     private String blockingReason;
@@ -34,6 +36,9 @@ public class DecisionDTO {
 
     public LocalDateTime getDecidedAt() { return decidedAt; }
     public void setDecidedAt(LocalDateTime decidedAt) { this.decidedAt = decidedAt; }
+
+    public String getAiReview() { return aiReview; }
+    public void setAiReview(String aiReview) { this.aiReview = aiReview; }
 
     public List<DecisionInputDTO> getInputs() { return inputs; }
     public void setInputs(List<DecisionInputDTO> inputs) { this.inputs = inputs; }

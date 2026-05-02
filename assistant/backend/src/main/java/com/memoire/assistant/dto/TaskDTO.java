@@ -19,6 +19,8 @@ public class TaskDTO {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private boolean overdue;
+    private String taskType;
+    private String aiResult;
 
     // Getters & Setters
     public UUID getId() { return id; }
@@ -59,4 +61,10 @@ public class TaskDTO {
 
     public boolean isOverdue() { return overdue; }
     public void setOverdue(boolean overdue) { this.overdue = overdue; }
+
+    public String getTaskType() { return taskType; }
+    public void setTaskType(String taskType) { this.taskType = taskType; }
+
+    public String getAiResult() { return aiResult; }
+    public void setAiResult(String aiResult) { this.aiResult = aiResult; }
 }

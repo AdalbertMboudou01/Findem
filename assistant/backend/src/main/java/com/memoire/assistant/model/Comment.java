@@ -12,7 +12,7 @@ import java.util.UUID;
 @Table(name = "comments")
 public class Comment {
 
-    public enum AuthorType { USER, RECRUITER }
+    public enum AuthorType { USER, RECRUITER, AI_SYSTEM }
     public enum Visibility { INTERNAL, SHARED }
 
     @Id

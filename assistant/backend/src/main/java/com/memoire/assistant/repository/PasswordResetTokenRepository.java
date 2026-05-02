@@ -21,7 +21,7 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
     /**
      * Trouver un token par utilisateur et non utilisé
      */
-    Optional<PasswordResetToken> findByUser_UserIdAndUsedFalse(UUID userId);
+    Optional<PasswordResetToken> findByUser_IdAndUsedFalse(UUID userId);
     
     /**
      * Trouver tous les tokens expirés
@@ -37,6 +37,6 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
     /**
      * Compter les tokens actifs pour un utilisateur
      */
-    @Query("SELECT COUNT(t) FROM PasswordResetToken t WHERE t.user.userId = :userId AND t.used = false AND t.expiresAt > :now")
+    @Query("SELECT COUNT(t) FROM PasswordResetToken t WHERE t.user.id = :userId AND t.used = false AND t.expiresAt > :now")
     long countActiveTokensByUser(@Param("userId") UUID userId, @Param("now") LocalDateTime now);
 }

@@ -10,6 +10,7 @@ public class TaskCreateRequest {
     private UUID assigneeId;
     private LocalDate dueDate;
     private String priority;
+    private String taskType;
 
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
@@ -25,4 +26,7 @@ public class TaskCreateRequest {
 
     public String getPriority() { return priority; }
     public void setPriority(String priority) { this.priority = priority; }
+
+    public String getTaskType() { return taskType; }
+    public void setTaskType(String taskType) { this.taskType = taskType; }
 }

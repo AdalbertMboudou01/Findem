@@ -25,6 +25,7 @@ public class DecisionService {
     @Autowired private DecisionRepository decisionRepository;
     @Autowired private ApplicationRepository applicationRepository;
     @Autowired private ApplicationActivityService activityService;
+    @Autowired private AIDecisionReviewService aiDecisionReviewService;
 
     public List<DecisionInputDTO> getInputs(UUID applicationId) {
         UUID companyId = TenantContext.getCompanyId();
@@ -75,6 +76,7 @@ public class DecisionService {
                     dto.setRationale(d.getRationale());
                     dto.setDecidedBy(d.getDecidedBy());
                     dto.setDecidedAt(d.getDecidedAt());
+                    dto.setAiReview(d.getAiReview());
                 });
 
         if (dto.getId() == null && inputs.isEmpty()) {
@@ -101,6 +103,9 @@ public class DecisionService {
         decision.setDecidedBy(actorId);
         decision.setDecidedAt(LocalDateTime.now());
 
+        String aiReview = aiDecisionReviewService.generateReview(applicationId, companyId, finalStatus, rationale);
+        decision.setAiReview(aiReview);
+
         Decision saved = decisionRepository.save(decision);
 
         activityService.logEvent(applicationId, EventType.DECISION_RECORDED, Map.of(
@@ -116,6 +121,7 @@ public class DecisionService {
         dto.setRationale(saved.getRationale());
         dto.setDecidedBy(saved.getDecidedBy());
         dto.setDecidedAt(saved.getDecidedAt());
+        dto.setAiReview(saved.getAiReview());
         dto.setInputs(getInputs(applicationId));
         return dto;
     }
