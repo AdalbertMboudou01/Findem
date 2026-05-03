@@ -1,6 +1,7 @@
 package com.memoire.assistant.security;
 
 import java.util.List;
+import java.util.Arrays;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -27,7 +28,7 @@ public class SecurityConfig {
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Value("${app.frontend.url:http://localhost:3100}")
-    private String frontendUrl;
+    private String frontendUrls;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -62,6 +63,7 @@ public class SecurityConfig {
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/jobs/*/public").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/chat/answer").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/apply").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/company-members/invitations/*").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/company-members/accept-invitation").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET,
                     "/swagger-ui/**",
@@ -80,7 +82,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(frontendUrl));
+        configuration.setAllowedOrigins(
+            Arrays.stream(frontendUrls.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .toList()
+        );
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         configuration.setExposedHeaders(List.of("Authorization"));

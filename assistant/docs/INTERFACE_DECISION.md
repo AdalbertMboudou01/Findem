@@ -2,30 +2,31 @@
 
 ## Current State
 
-The frontend has been intentionally removed. The backend is now the stable demonstrable surface.
+The backend remains the stable demonstrable surface, and a lightweight static frontend now exists for the core demo flow.
 
 Available interfaces:
 
+- Demo frontend: `http://localhost:3100`;
 - Swagger/OpenAPI for exploration;
 - Postman/Insomnia for scripted demos;
 - `curl` flow documented in `DEMO_FLOW.md`.
 
 ## Recommendation
 
-For the next demo and the memoire defense, use an API-first demo rather than rebuilding a frontend immediately.
+For the next demo and the memoire defense, use the static frontend as the primary walkthrough and keep Swagger/Postman as a fallback.
 
 Reasons:
 
 - the backend now starts in Docker;
 - the AI persona flows are backend workflows;
 - Swagger exposes the available API surface;
-- a scripted API demo is faster to stabilize and easier to explain technically.
+- the static frontend follows the same API demo path without adding a build pipeline.
 
 ## When to Rebuild a Frontend
 
-Rebuild a minimal frontend only after the API demo is stable.
+Replace the static frontend with a full application only after the demo story is stable.
 
-The minimal useful frontend would need only:
+The current minimal useful frontend covers:
 
 - login/onboarding;
 - job creation;
@@ -41,6 +42,7 @@ Avoid rebuilding dashboards, team chat, announcements, or broad admin pages unti
 
 Use:
 
+- Demo frontend: `http://localhost:3100`
 - Swagger: `http://localhost:8100/swagger-ui/index.html`
 - API docs: `http://localhost:8100/v3/api-docs`
 - Demo script: `DEMO_FLOW.md`
